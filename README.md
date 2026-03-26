@@ -1,8 +1,6 @@
 # WoWHUB
 
-<p align="center">
-  <img src="./assets/wowhub-banner.png" alt="Banner do WoWHUB" width="100%" />
-</p>
+
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-conclu%C3%ADdo-1f8b4c?style=for-the-badge" alt="Status" />
