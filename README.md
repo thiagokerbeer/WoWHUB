@@ -1,163 +1,279 @@
 # WoWHUB
 
-Plataforma full stack para gerenciamento de chamados, tarefas e acompanhamento operacional em ambiente corporativo.
+Plataforma web para operação interna, organização de demandas e gestão centralizada de usuários, tarefas e chamados.
 
-O projeto foi desenvolvido com foco em autenticação, área privada, controle de permissões, gerenciamento de tickets e tarefas, além de uma interface moderna para uso em portfólio.
+O **WoWHUB** foi projetado com proposta de produto real de mercado: uma aplicação SaaS com foco em fluxo operacional, visibilidade gerencial, controle administrativo e experiência moderna de uso.  
+A estrutura do projeto combina frontend e backend desacoplados, autenticação, painel administrativo e interface construída para parecer software profissional.
 
-## Links do projeto
+---
 
-- Frontend: https://wo-whub.vercel.app/
-- Backend: https://wowhub.onrender.com
+## Visão geral
 
-## Demonstração
+Em muitos times, o fluxo operacional se perde entre mensagens, planilhas e ferramentas desconectadas. O WoWHUB nasce para resolver esse cenário com uma plataforma única para acompanhamento de atividades, organização do ambiente interno e centralização do controle da operação.
 
-A aplicação conta com:
-- autenticação de usuários
-- cadastro e login
-- dashboard privada
-- gerenciamento de tickets
-- gerenciamento de tarefas
-- área administrativa com controle por perfil
-- integração entre frontend, backend e banco PostgreSQL
+A aplicação foi construída com foco em:
 
-## Tecnologias utilizadas
+- gestão visual e clara da operação
+- organização de tarefas e chamados
+- controle de acesso de usuários
+- painel administrativo com ações reais
+- base escalável para evolução de produto SaaS
+
+---
+
+## Principais funcionalidades
+
+### Painel operacional
+- visualização central da operação
+- interface organizada para navegação entre áreas do sistema
+- experiência pensada para uso diário
+
+### Gestão de tarefas e demandas
+- estrutura voltada para organização de rotinas internas
+- base preparada para acompanhamento de atividades operacionais
+- visão centralizada para produtividade e controle
+
+### Gestão de chamados
+- ambiente voltado para fluxo de suporte e operação
+- estrutura de software com mentalidade de produto interno/externo
+- possibilidade de expansão para regras de prioridade, status e histórico
+
+### Autenticação e área privada
+- acesso autenticado para usuários
+- separação entre área pública e ambiente restrito
+- base preparada para regras de permissão e controle por perfil
+
+### Administração de usuários
+O painel administrativo já conta com ações funcionais integradas ao backend:
+
+- bloquear usuário
+- desbloquear usuário
+- aplicar banimento temporário de **5 dias**
+- aplicar banimento temporário de **30 dias**
+- remover banimento
+- excluir usuário
+
+### Feedback visual de ação
+- respostas visuais no fluxo administrativo
+- experiência mais clara para ações críticas
+- interface polida para transmitir sensação de produto premium
+
+---
+
+## Diferenciais do projeto
+
+- arquitetura separada entre frontend e backend
+- interface premium com foco em percepção de produto real
+- integração completa entre camada visual e regras administrativas
+- uso de banco PostgreSQL com Prisma ORM
+- deploy em ambiente real com frontend na **Vercel** e backend na **Render**
+- modelagem preparada para crescimento do sistema
+
+---
+
+## Stack utilizada
 
 ### Frontend
-- React
-- TypeScript
-- Vite
-- React Router DOM
-- Axios
+- **React**
+- **TypeScript**
+- **Vite**
 
 ### Backend
-- Node.js
-- Express
-- TypeScript
-- Prisma ORM
-- JWT
-- Bcrypt
-- Zod
-- CORS
+- **Node.js**
+- **Express**
+- **TypeScript**
 
-### Banco de dados
-- PostgreSQL
-- Neon
+### Banco e ORM
+- **PostgreSQL**
+- **Prisma**
 
-### Deploy
-- Vercel
-- Render
+### Infra e deploy
+- **Neon** para banco de dados PostgreSQL
+- **Vercel** para deploy do frontend
+- **Render** para deploy do backend
 
-## Estrutura do projeto
+---
+
+## Arquitetura do projeto
+
+O projeto está organizado em duas aplicações principais:
 
 ```bash
-WoWHUB/
-├── backend
-└── frontend
+wowhub/
+  frontend/
+  backend/
 
+  Frontend
 
-Funcionalidades
-Autenticação
-cadastro de usuário
-login com token JWT
-persistência de sessão
-controle de acesso por perfil
-Tickets
-criação de chamados
-listagem de tickets
-atualização de status
-comentários em tickets
-prioridade e categoria
-Tarefas
-criação de tarefas
-atribuição para usuários
-atualização de status
-vinculação com projeto
-Administração
-área restrita para administradores
-gerenciamento de recursos internos
-controle de permissões por role
-Perfis de acesso
+Responsável por:
 
-O seed inicial cria dois usuários de teste:
+interface do usuário
+navegação entre páginas
+consumo da API
+fluxo visual do painel
+experiência administrativa
+Backend
 
-Admin
-Email: admin@wowhub.com
-Senha: 123456
-User
-Email: user@wowhub.com
-Senha: 123456
-Como rodar localmente
-1. Clone o repositório
-git clone https://github.com/thiagokerbeer/WoWHUB.git
-cd WoWHUB
-2. Rode o backend
+Responsável por:
+
+regras de negócio
+autenticação e proteção de rotas
+gerenciamento de usuários
+ações administrativas
+integração com banco de dados via Prisma
+Funcionalidades administrativas já implementadas
+
+O WoWHUB já possui uma área administrativa funcional conectada ao backend com suporte para:
+
+listagem de usuários
+controle de status de acesso
+bloqueio e desbloqueio
+banimentos temporários
+remoção de banimentos
+exclusão de usuários
+
+Campos já existentes no modelo de usuário:
+
+isBlocked
+bannedUntil
+
+Esses campos permitem ampliar facilmente a camada de governança e segurança da aplicação em futuras evoluções.
+
+Experiência visual
+
+O frontend do WoWHUB foi trabalhado para transmitir sensação de plataforma profissional.
+A proposta visual busca um resultado mais próximo de software comercial moderno, com:
+
+layout limpo
+contraste elegante
+hierarquia visual clara
+componentes com acabamento mais premium
+páginas administrativas com feedback de ação
+linguagem visual coerente entre autenticação, painel e gestão
+Como executar o projeto localmente
+1) Clonar o repositório
+git clone <URL_DO_SEU_REPOSITORIO>
+cd wowhub
+2) Rodar o backend
+Caminho
+
+backend
+
+Instalar dependências
 cd backend
 npm install
+Configurar variáveis de ambiente
+
+Crie um arquivo .env dentro de backend/ com a URL do banco PostgreSQL:
+
+DATABASE_URL="sua_database_url"
+DIRECT_URL="sua_direct_url"
+JWT_SECRET="seu_segredo_jwt"
+
+Observação: os nomes das variáveis podem variar conforme sua implementação atual.
+Mantenha exatamente os nomes usados no seu projeto.
+
+Gerar Prisma Client
 npx prisma generate
-npx prisma migrate dev --name init
-npm run seed
+Rodar migrations
+npx prisma migrate dev
+Subir backend em desenvolvimento
 npm run dev
+Build do backend
+npm run build
+3) Rodar o frontend
+Caminho
 
-O backend ficará disponível em:
+frontend
 
-http://localhost:3333
-3. Rode o frontend
-
-Em outro terminal:
-
-cd frontend
+Instalar dependências
+cd ../frontend
 npm install
+Configurar variáveis de ambiente
+
+Crie um arquivo .env dentro de frontend/ com a URL da API:
+
+VITE_API_URL="http://localhost:PORTA_DA_API"
+Rodar frontend em desenvolvimento
 npm run dev
-
-O frontend ficará disponível em:
-
-http://localhost:5173
-Variáveis de ambiente
-Backend .env
-DATABASE_URL="sua_url_do_postgres"
-DIRECT_URL="sua_url_direta_do_postgres"
-JWT_SECRET="sua_chave_jwt"
-FRONTEND_URL="http://localhost:5173"
-PORT=3333
-Frontend .env
-VITE_API_URL=http://localhost:3333
-Build de produção
-Backend
-cd backend
+Build do frontend
 npm run build
-npm start
-Frontend
-cd frontend
-npm run build
-Deploy
-Frontend
-
-Publicado na Vercel:
-
-https://wo-whub.vercel.app/
-Backend
-
-Publicado na Render:
-
-https://wowhub.onrender.com
-Banco
-
-Hospedado no Neon com PostgreSQL.
-
+Fluxo de funcionamento
+o usuário acessa a aplicação
+realiza autenticação
+entra na área privada da plataforma
+interage com os módulos do sistema
+administradores podem gerenciar usuários através da AdminPage
+o backend processa regras e persiste os dados no PostgreSQL via Prisma
 Objetivo do projeto
 
-O WoWHUB foi criado como projeto de portfólio para demonstrar capacidade de desenvolver uma aplicação full stack moderna, com:
+O WoWHUB foi desenvolvido como peça de portfólio com padrão superior de apresentação, estrutura técnica consistente e proposta real de produto.
 
-frontend componentizado
-backend com rotas protegidas
-autenticação com JWT
-validação com Zod
-ORM com Prisma
-integração com banco relacional
-deploy completo em produção
+Mais do que demonstrar layout, o projeto busca mostrar capacidade de construir uma aplicação com:
+
+separação entre camadas
+integração real frontend/backend
+modelagem de dados
+controle administrativo
+deploy
+refinamento visual
+organização de código
+pensamento de produto
+Status atual
+Concluído
+estrutura base do projeto
+frontend com identidade visual trabalhada
+backend funcional
+integração entre frontend e backend
+área administrativa operacional
+ações administrativas de usuário funcionando
+melhorias visuais na AdminPage
+build do backend funcionando com npm run build
+Em evolução
+refinamento final de documentação
+fortalecimento da apresentação para portfólio
+próximas expansões funcionais do sistema
+Próximas possibilidades de evolução
+controle por níveis de permissão
+histórico de ações administrativas
+filtros avançados por status de usuário
+gestão completa de chamados com prioridade e SLA
+dashboard com métricas operacionais
+notificações internas
+auditoria de ações
+paginação e busca de usuários
+melhoria de segurança e observabilidade
+Aprendizados aplicados no projeto
+
+Durante a construção do WoWHUB, foram trabalhados na prática conceitos importantes de desenvolvimento full stack, como:
+
+criação de aplicação com frontend e backend separados
+integração entre API e interface
+modelagem com Prisma
+uso de PostgreSQL em ambiente real
+deploy de aplicações em plataformas diferentes
+tratamento de regras administrativas
+polimento visual com foco em percepção de qualidade
+organização de projeto para portfólio técnico
+Demonstração
+Frontend
+
+Adicione aqui o link publicado na Vercel:
+
+[Frontend publicado](https://wo-whub.vercel.app/)
+Backend
+
+Adicione aqui o link publicado na Render:
+
+[Backend publicado](https://wowhub.onrender.com)
 Autor
 
 Thiago Kerber
 
-GitHub: https://github.com/thiagokerbeer
-LinkedIn: https://www.linkedin.com/in/thiagokerber/
+Desenvolvedor Full Stack em construção de portfólio com foco em aplicações web modernas, experiência prática com React, TypeScript, Node.js, Express, Prisma e PostgreSQL.
+
+Observação final
+
+O WoWHUB representa uma aplicação construída com mentalidade de produto real: organização técnica, camada administrativa funcional, integração completa e preocupação visual acima do padrão comum de projeto acadêmico.
+
+Este projeto foi desenvolvido como vitrine técnica para demonstrar capacidade de construir software com estrutura, acabamento e potencial de evolução.
