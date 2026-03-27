@@ -1,13 +1,18 @@
 import axios from "axios";
 
+const baseURL =
+  import.meta.env.VITE_API_URL?.trim() || "http://localhost:3333";
+
 export const api = axios.create({
-  baseURL: "http://localhost:3333"
+  baseURL,
 });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("wowhub_token");
+
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
   return config;
 });

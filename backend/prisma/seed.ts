@@ -1,4 +1,10 @@
-import { PrismaClient, TicketPriority, TicketStatus, TaskStatus, UserRole } from "@prisma/client";
+import {
+  PrismaClient,
+  TicketPriority,
+  TicketStatus,
+  TaskStatus,
+  UserRole,
+} from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -14,8 +20,8 @@ async function main() {
       email: "admin@wowhub.com",
       password,
       role: UserRole.ADMIN,
-      avatar: "AM"
-    }
+      avatar: "AM",
+    },
   });
 
   const user = await prisma.user.upsert({
@@ -26,8 +32,8 @@ async function main() {
       email: "user@wowhub.com",
       password,
       role: UserRole.USER,
-      avatar: "JP"
-    }
+      avatar: "JP",
+    },
   });
 
   const project = await prisma.project.upsert({
@@ -36,40 +42,46 @@ async function main() {
     create: {
       id: "wowhub-project-core",
       name: "Launch Campaign",
-      description: "Central project for onboarding, operations and support workflows.",
-      status: "active"
-    }
+      description:
+        "Central project for onboarding, operations and support workflows.",
+      status: "active",
+    },
   });
 
-  await prisma.task.createMany({
-    data: [
-      {
-        title: "Design onboarding board",
-        description: "Prepare the premium onboarding view for new clients.",
-        status: TaskStatus.DOING,
-        projectId: project.id,
-        assigneeId: admin.id,
-        createdById: admin.id
-      },
-      {
-        title: "Map support SLAs",
-        description: "Document the main support lanes and escalation rules.",
-        status: TaskStatus.TODO,
-        projectId: project.id,
-        assigneeId: user.id,
-        createdById: admin.id
-      },
-      {
-        title: "Review landing animations",
-        description: "Check the hero area and polish motion and spacing.",
-        status: TaskStatus.DONE,
-        projectId: project.id,
-        assigneeId: admin.id,
-        createdById: admin.id
-      }
-    ],
-    skipDuplicates: true
+  const existingTasksCount = await prisma.task.count({
+    where: { projectId: project.id },
   });
+
+  if (existingTasksCount === 0) {
+    await prisma.task.createMany({
+      data: [
+        {
+          title: "Design onboarding board",
+          description: "Prepare the premium onboarding view for new clients.",
+          status: TaskStatus.DOING,
+          projectId: project.id,
+          assigneeId: admin.id,
+          createdById: admin.id,
+        },
+        {
+          title: "Map support SLAs",
+          description: "Document the main support lanes and escalation rules.",
+          status: TaskStatus.TODO,
+          projectId: project.id,
+          assigneeId: user.id,
+          createdById: admin.id,
+        },
+        {
+          title: "Review landing animations",
+          description: "Check the hero area and polish motion and spacing.",
+          status: TaskStatus.DONE,
+          projectId: project.id,
+          assigneeId: admin.id,
+          createdById: admin.id,
+        },
+      ],
+    });
+  }
 
   const ticket = await prisma.ticket.upsert({
     where: { id: "wowhub-ticket-seed" },
@@ -77,50 +89,62 @@ async function main() {
     create: {
       id: "wowhub-ticket-seed",
       title: "Dashboard analytics mismatch",
-      description: "The executive dashboard is not reflecting this week sales numbers.",
+      description:
+        "The executive dashboard is not reflecting this week sales numbers.",
       category: "Analytics",
       status: TicketStatus.IN_PROGRESS,
       priority: TicketPriority.HIGH,
-      userId: user.id
-    }
+      userId: user.id,
+    },
   });
 
-  await prisma.comment.createMany({
-    data: [
-      {
-        message: "Investigating the data aggregation pipeline.",
-        ticketId: ticket.id,
-        userId: admin.id
-      },
-      {
-        message: "Client confirmed the issue is happening since yesterday morning.",
-        ticketId: ticket.id,
-        userId: user.id
-      }
-    ],
-    skipDuplicates: true
+  const existingCommentsCount = await prisma.comment.count({
+    where: { ticketId: ticket.id },
   });
 
-  await prisma.activityLog.createMany({
-    data: [
-      {
-        action: "Ticket escalated",
-        details: "High priority analytics issue moved to engineering lane.",
-        userId: admin.id
-      },
-      {
-        action: "Task closed",
-        details: "Landing animation pass approved by design lead.",
-        userId: admin.id
-      },
-      {
-        action: "Support request opened",
-        details: "New report mismatch ticket created by Jaina Proudmoore.",
-        userId: user.id
-      }
-    ],
-    skipDuplicates: true
-  });
+  if (existingCommentsCount === 0) {
+    await prisma.comment.createMany({
+      data: [
+        {
+          message: "Investigating the data aggregation pipeline.",
+          ticketId: ticket.id,
+          userId: admin.id,
+        },
+        {
+          message:
+            "Client confirmed the issue is happening since yesterday morning.",
+          ticketId: ticket.id,
+          userId: user.id,
+        },
+      ],
+    });
+  }
+
+  const existingActivitiesCount = await prisma.activityLog.count();
+
+  if (existingActivitiesCount === 0) {
+    await prisma.activityLog.createMany({
+      data: [
+        {
+          action: "Ticket escalated",
+          details:
+            "High priority analytics issue moved to engineering lane.",
+          userId: admin.id,
+        },
+        {
+          action: "Task closed",
+          details: "Landing animation pass approved by design lead.",
+          userId: admin.id,
+        },
+        {
+          action: "Support request opened",
+          details:
+            "New report mismatch ticket created by Jaina Proudmoore.",
+          userId: user.id,
+        },
+      ],
+    });
+  }
 
   console.log("WoWHUB seed completed.");
 }
