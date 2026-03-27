@@ -1,18 +1,17 @@
-import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { api } from "../services/api";
-import { AuthResponse, User } from "../types";
+import type { AuthResponse, User } from "../types";
 
 type LoginData = {
   email: string;
   password: string;
-  turnstileToken: string;
 };
 
 type RegisterData = {
   name: string;
   email: string;
   password: string;
-  turnstileToken: string;
 };
 
 type AuthContextType = {
@@ -39,12 +38,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     api
       .get<User>("/auth/me")
-      .then((response) => setUser(response.data))
+      .then((response) => {
+        setUser(response.data);
+      })
       .catch(() => {
         localStorage.removeItem("wowhub_token");
         localStorage.removeItem("wowhub_user");
+        setUser(null);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   async function handleAuth(
@@ -58,12 +62,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(response.data.user);
   }
 
-  function login(data: LoginData) {
-    return handleAuth("/auth/login", data);
+  async function login(data: LoginData) {
+    await handleAuth("/auth/login", data);
   }
 
-  function register(data: RegisterData) {
-    return handleAuth("/auth/register", data);
+  async function register(data: RegisterData) {
+    await handleAuth("/auth/register", data);
   }
 
   function logout() {

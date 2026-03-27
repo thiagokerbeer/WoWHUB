@@ -1,9 +1,9 @@
-import { FormEvent, useState } from "react";
+import { useState } from "react";
+import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { BrandLogo } from "../components/BrandLogo";
 import { InteractiveBackground } from "../components/InteractiveBackground";
-import { TurnstileWidget } from "../components/TurnstileWidget";
 
 export function RegisterPage() {
   const { register } = useAuth();
@@ -13,19 +13,13 @@ export function RegisterPage() {
     name: "",
     email: "",
     password: "",
-    turnstileToken: "",
   });
 
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (!form.turnstileToken) {
-      setError("Confirme a verificação de segurança.");
-      return;
-    }
 
     try {
       setSubmitting(true);
@@ -35,16 +29,11 @@ export function RegisterPage() {
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
         password: form.password,
-        turnstileToken: form.turnstileToken,
       });
 
       navigate("/app");
     } catch (err: any) {
       setError(err?.response?.data?.message || "Falha no cadastro");
-      setForm((current) => ({
-        ...current,
-        turnstileToken: "",
-      }));
     } finally {
       setSubmitting(false);
     }
@@ -64,7 +53,7 @@ export function RegisterPage() {
           <span className="eyebrow">Novo operador</span>
           <h1>Crie sua conta</h1>
           <p className="body-copy">
-            Cadastro protegido para reduzir abuso e deixar a plataforma com cara de produto real.
+            Cadastro protegido por validação no servidor e limite de tentativas.
           </p>
         </div>
 
@@ -75,10 +64,10 @@ export function RegisterPage() {
               type="text"
               value={form.name}
               onChange={(e) =>
-                setForm({
-                  ...form,
+                setForm((current) => ({
+                  ...current,
                   name: e.target.value,
-                })
+                }))
               }
               placeholder="Seu nome"
               autoComplete="name"
@@ -92,10 +81,10 @@ export function RegisterPage() {
               type="email"
               value={form.email}
               onChange={(e) =>
-                setForm({
-                  ...form,
+                setForm((current) => ({
+                  ...current,
                   email: e.target.value,
-                })
+                }))
               }
               placeholder="voce@empresa.com"
               autoComplete="email"
@@ -109,10 +98,10 @@ export function RegisterPage() {
               type="password"
               value={form.password}
               onChange={(e) =>
-                setForm({
-                  ...form,
+                setForm((current) => ({
+                  ...current,
                   password: e.target.value,
-                })
+                }))
               }
               placeholder="Crie uma senha"
               autoComplete="new-password"
@@ -120,16 +109,7 @@ export function RegisterPage() {
             />
           </label>
 
-          <TurnstileWidget
-            onTokenChange={(token) =>
-              setForm((current) => ({
-                ...current,
-                turnstileToken: token,
-              }))
-            }
-          />
-
-          {error && <div className="error-box">{error}</div>}
+          {error ? <div className="error-box">{error}</div> : null}
 
           <button type="submit" className="primary-button" disabled={submitting}>
             {submitting ? "Criando..." : "Cadastrar"}
