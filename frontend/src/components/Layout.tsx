@@ -1,10 +1,17 @@
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+
 import { BrandLogo } from "./BrandLogo";
 import { InteractiveBackground } from "./InteractiveBackground";
 
 export function Layout() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    logout();
+    navigate("/", { replace: true });
+  }
 
   return (
     <div className="app-shell">
@@ -39,7 +46,7 @@ export function Layout() {
           Voltar para home
         </Link>
 
-        <button type="button" className="ghost-button" onClick={logout}>
+        <button type="button" className="ghost-button" onClick={handleLogout}>
           Sair
         </button>
       </aside>
