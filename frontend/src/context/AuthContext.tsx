@@ -5,12 +5,14 @@ import { AuthResponse, User } from "../types";
 type LoginData = {
   email: string;
   password: string;
+  turnstileToken: string;
 };
 
 type RegisterData = {
   name: string;
   email: string;
   password: string;
+  turnstileToken: string;
 };
 
 type AuthContextType = {
@@ -24,47 +26,25 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    const storedUser = localStorage.getItem("wowhub_user");
-
-    if (!storedUser) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(storedUser) as User;
-    } catch {
-      localStorage.removeItem("wowhub_user");
-      return null;
-    }
-  });
-
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem("wowhub_token");
 
     if (!token) {
-      localStorage.removeItem("wowhub_user");
-      setUser(null);
       setLoading(false);
       return;
     }
 
     api
       .get<User>("/auth/me")
-      .then((response) => {
-        setUser(response.data);
-        localStorage.setItem("wowhub_user", JSON.stringify(response.data));
-      })
+      .then((response) => setUser(response.data))
       .catch(() => {
         localStorage.removeItem("wowhub_token");
         localStorage.removeItem("wowhub_user");
-        setUser(null);
       })
-      .finally(() => {
-        setLoading(false);
-      });
+      .finally(() => setLoading(false));
   }, []);
 
   async function handleAuth(
