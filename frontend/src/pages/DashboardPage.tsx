@@ -60,6 +60,50 @@ export function DashboardPage() {
     return definirSaudeOperacional(data);
   }, [data]);
 
+  const metricas = useMemo(() => {
+    if (!data) {
+      return [];
+    }
+
+    const totalChamadosMonitorados = data.metrics.openTickets + data.metrics.resolvedTickets;
+    const taxaResolucao =
+      totalChamadosMonitorados > 0
+        ? Math.round((data.metrics.resolvedTickets / totalChamadosMonitorados) * 100)
+        : 0;
+
+    return [
+      {
+        titulo: "Chamados abertos",
+        valor: data.metrics.openTickets,
+        apoio: "Demandas que ainda exigem atenção direta da operação.",
+        destaque: data.metrics.openTickets <= 4 ? "Fluxo controlado" : "Fila exigindo prioridade",
+        tom: "is-cyan",
+      },
+      {
+        titulo: "Chamados resolvidos",
+        valor: data.metrics.resolvedTickets,
+        apoio: "Volume concluído e devolvido como resposta efetiva.",
+        destaque: `${taxaResolucao}% de resolução no painel`,
+        tom: "is-violet",
+      },
+      {
+        titulo: "Tarefas em andamento",
+        valor: data.metrics.tasksInProgress,
+        apoio: "Execução ativa dentro dos projetos e rotinas internas.",
+        destaque:
+          data.metrics.tasksInProgress <= 4 ? "Carga equilibrada" : "Execução intensa no momento",
+        tom: "is-amber",
+      },
+      {
+        titulo: "Projetos ativos",
+        valor: data.metrics.projectsCount,
+        apoio: "Frentes operacionais e estruturas vivas dentro da plataforma.",
+        destaque: `${data.metrics.usersCount} usuários visíveis no ambiente`,
+        tom: "is-emerald",
+      },
+    ];
+  }, [data]);
+
   if (!data) {
     return <div className="panel-card">Carregando dashboard...</div>;
   }
@@ -112,26 +156,27 @@ export function DashboardPage() {
         </aside>
       </section>
 
-      <section className="metric-grid">
-        <article className="metric-card">
-          <small>Chamados abertos</small>
-          <strong>{data.metrics.openTickets}</strong>
-        </article>
+      <section className="dashboard-metrics-grid">
+        {metricas.map((metrica) => (
+          <article key={metrica.titulo} className={`dashboard-kpi-card ${metrica.tom}`}>
+            <div className="dashboard-kpi-card__glow" />
 
-        <article className="metric-card">
-          <small>Chamados resolvidos</small>
-          <strong>{data.metrics.resolvedTickets}</strong>
-        </article>
+            <div className="dashboard-kpi-card__top">
+              <div>
+                <span className="dashboard-kpi-card__eyebrow">Indicador central</span>
+                <h3>{metrica.titulo}</h3>
+              </div>
 
-        <article className="metric-card">
-          <small>Tarefas em andamento</small>
-          <strong>{data.metrics.tasksInProgress}</strong>
-        </article>
+              <span className="dashboard-kpi-card__badge">{metrica.destaque}</span>
+            </div>
 
-        <article className="metric-card">
-          <small>Projetos ativos</small>
-          <strong>{data.metrics.projectsCount}</strong>
-        </article>
+            <div className="dashboard-kpi-card__value-row">
+              <strong>{metrica.valor}</strong>
+            </div>
+
+            <p>{metrica.apoio}</p>
+          </article>
+        ))}
       </section>
 
       <section className="content-grid">
