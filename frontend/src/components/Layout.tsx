@@ -1,6 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-
 import { BrandLogo } from "./BrandLogo";
 import { InteractiveBackground } from "./InteractiveBackground";
 
@@ -25,7 +24,7 @@ export function Layout() {
         <p className="sidebar-copy">Central operacional para suporte, tarefas e gestão.</p>
 
         <nav className="nav-links">
-          <NavLink to="/app">Dashboard</NavLink>
+          <NavLink to="/app">Painel</NavLink>
           <NavLink to="/app/tickets">Chamados</NavLink>
           <NavLink to="/app/tasks">Tarefas</NavLink>
           {user?.role === "ADMIN" && <NavLink to="/app/admin">Admin</NavLink>}
