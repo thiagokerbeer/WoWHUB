@@ -45,6 +45,43 @@ function definirSaudeOperacional(data: DashboardData) {
   };
 }
 
+function obterResumoAtividade(action: string) {
+  const acao = action.toLowerCase();
+
+  if (acao.includes("login")) {
+    return {
+      grupo: "Acesso",
+      tom: "is-cyan",
+    };
+  }
+
+  if (acao.includes("account") || acao.includes("user")) {
+    return {
+      grupo: "Usuário",
+      tom: "is-violet",
+    };
+  }
+
+  if (acao.includes("ticket") || acao.includes("chamado")) {
+    return {
+      grupo: "Chamado",
+      tom: "is-amber",
+    };
+  }
+
+  if (acao.includes("task") || acao.includes("tarefa")) {
+    return {
+      grupo: "Tarefa",
+      tom: "is-emerald",
+    };
+  }
+
+  return {
+    grupo: "Sistema",
+    tom: "is-neutral",
+  };
+}
+
 export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
 
@@ -225,19 +262,44 @@ export function DashboardPage() {
         </div>
       </section>
 
-      <section className="panel-card">
-        <div className="panel-title-row">
-          <h2>Fluxo de atividades</h2>
+      <section className="panel-card dashboard-activity-panel">
+        <div className="panel-title-row dashboard-activity-panel__header">
+          <div>
+            <span className="eyebrow">Fluxo recente</span>
+            <h2>Atividade da operação</h2>
+          </div>
+          <p className="dashboard-activity-panel__copy">
+            Leitura rápida do que foi movimentado no ambiente nas ações mais recentes.
+          </p>
         </div>
 
-        <div className="activity-list">
-          {data.recentActivity.map((activity) => (
-            <div key={activity.id} className="activity-item">
-              <strong>{activity.action}</strong>
-              <p>{activity.details}</p>
-              <small>{activity.user.name}</small>
-            </div>
-          ))}
+        <div className="dashboard-timeline">
+          {data.recentActivity.map((activity, index) => {
+            const resumo = obterResumoAtividade(activity.action);
+
+            return (
+              <article key={activity.id} className="dashboard-timeline-item">
+                <div className="dashboard-timeline-item__rail">
+                  <span className={`dashboard-timeline-item__dot ${resumo.tom}`} />
+                  {index < data.recentActivity.length - 1 ? (
+                    <span className="dashboard-timeline-item__line" />
+                  ) : null}
+                </div>
+
+                <div className="dashboard-timeline-item__content">
+                  <div className="dashboard-timeline-item__top">
+                    <span className={`dashboard-timeline-item__tag ${resumo.tom}`}>
+                      {resumo.grupo}
+                    </span>
+                    <span className="dashboard-timeline-item__user">{activity.user.name}</span>
+                  </div>
+
+                  <strong>{activity.action}</strong>
+                  <p>{activity.details}</p>
+                </div>
+              </article>
+            );
+          })}
         </div>
       </section>
     </div>
