@@ -93,11 +93,16 @@ O painel administrativo já conta com ações funcionais integradas ao backend:
 - **Render** para deploy do backend
 
 ---
-Demonstração
-Frontend
-[Frontend publicado](https://wo-whub.vercel.app/)
-Backend
-[Backend publicado](https://wowhub.onrender.com)
+## Acesse a demonstração
+
+Veja o WoWHUB em funcionamento nos links abaixo.
+
+### Aplicação web
+[Visualizar frontend ao vivo]((https://wo-whub.vercel.app))
+
+### API / backend
+[Acessar backend publicado]((https://wowhub.onrender.com))
+
 
 ## Arquitetura do projeto
 
