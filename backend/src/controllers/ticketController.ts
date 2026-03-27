@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Prisma, TicketPriority, TicketStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../config/prisma";
 import { createActivity } from "../utils/activity";
@@ -7,7 +8,7 @@ const ticketSchema = z.object({
   title: z.string().min(3),
   description: z.string().min(10),
   category: z.string().min(2),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
+  priority: z.nativeEnum(TicketPriority),
 });
 
 const commentSchema = z.object({
@@ -15,10 +16,10 @@ const commentSchema = z.object({
 });
 
 const statusSchema = z.object({
-  status: z.enum(["OPEN", "IN_PROGRESS", "WAITING_RESPONSE", "RESOLVED", "CLOSED"]),
+  status: z.nativeEnum(TicketStatus),
 });
 
-function getSingleQueryParam(value: unknown): string | undefined {
+function getSingleValue(value: unknown): string | undefined {
   if (typeof value === "string") {
     return value;
   }
@@ -30,15 +31,43 @@ function getSingleQueryParam(value: unknown): string | undefined {
   return undefined;
 }
 
+function parseTicketStatus(value: unknown): TicketStatus | undefined {
+  const singleValue = getSingleValue(value);
+
+  if (!singleValue) {
+    return undefined;
+  }
+
+  if (Object.values(TicketStatus).includes(singleValue as TicketStatus)) {
+    return singleValue as TicketStatus;
+  }
+
+  return undefined;
+}
+
+function parseTicketPriority(value: unknown): TicketPriority | undefined {
+  const singleValue = getSingleValue(value);
+
+  if (!singleValue) {
+    return undefined;
+  }
+
+  if (Object.values(TicketPriority).includes(singleValue as TicketPriority)) {
+    return singleValue as TicketPriority;
+  }
+
+  return undefined;
+}
+
 export async function getTickets(req: Request, res: Response) {
   try {
     const role = req.user?.role;
     const userId = req.user?.userId as string;
 
-    const status = getSingleQueryParam(req.query.status);
-    const priority = getSingleQueryParam(req.query.priority);
+    const status = parseTicketStatus(req.query.status);
+    const priority = parseTicketPriority(req.query.priority);
 
-    const where =
+    const where: Prisma.TicketWhereInput =
       role === "ADMIN"
         ? {
             ...(status ? { status } : {}),
@@ -97,7 +126,10 @@ export async function createTicket(req: Request, res: Response) {
 
     const ticket = await prisma.ticket.create({
       data: {
-        ...parsed.data,
+        title: parsed.data.title,
+        description: parsed.data.description,
+        category: parsed.data.category,
+        priority: parsed.data.priority,
         userId: req.user?.userId as string,
       },
       include: {
@@ -130,8 +162,14 @@ export async function updateTicketStatus(req: Request, res: Response) {
       return res.status(400).json({ message: "Status inválido" });
     }
 
+    const ticketId = getSingleValue(req.params.id);
+
+    if (!ticketId) {
+      return res.status(400).json({ message: "ID do ticket inválido" });
+    }
+
     const ticket = await prisma.ticket.findUnique({
-      where: { id: req.params.id },
+      where: { id: ticketId },
     });
 
     if (!ticket) {
@@ -143,7 +181,7 @@ export async function updateTicketStatus(req: Request, res: Response) {
     }
 
     const updatedTicket = await prisma.ticket.update({
-      where: { id: req.params.id },
+      where: { id: ticketId },
       data: { status: parsed.data.status },
     });
 
@@ -167,8 +205,14 @@ export async function addComment(req: Request, res: Response) {
       return res.status(400).json({ message: "Comentário inválido" });
     }
 
+    const ticketId = getSingleValue(req.params.id);
+
+    if (!ticketId) {
+      return res.status(400).json({ message: "ID do ticket inválido" });
+    }
+
     const ticket = await prisma.ticket.findUnique({
-      where: { id: req.params.id },
+      where: { id: ticketId },
     });
 
     if (!ticket) {
@@ -182,7 +226,7 @@ export async function addComment(req: Request, res: Response) {
     const comment = await prisma.comment.create({
       data: {
         message: parsed.data.message,
-        ticketId: req.params.id,
+        ticketId,
         userId: req.user?.userId as string,
       },
       include: {

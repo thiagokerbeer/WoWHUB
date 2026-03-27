@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Prisma, TaskStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../config/prisma";
 import { createActivity } from "../utils/activity";
@@ -9,10 +10,10 @@ const taskSchema = z.object({
   projectId: z.string().min(1),
   assigneeId: z.string().optional().nullable(),
   dueDate: z.string().optional().nullable(),
-  status: z.enum(["TODO", "DOING", "DONE"]).default("TODO"),
+  status: z.nativeEnum(TaskStatus).default(TaskStatus.TODO),
 });
 
-function getSingleQueryParam(value: unknown): string | undefined {
+function getSingleValue(value: unknown): string | undefined {
   if (typeof value === "string") {
     return value;
   }
@@ -24,11 +25,25 @@ function getSingleQueryParam(value: unknown): string | undefined {
   return undefined;
 }
 
+function parseTaskStatus(value: unknown): TaskStatus | undefined {
+  const singleValue = getSingleValue(value);
+
+  if (!singleValue) {
+    return undefined;
+  }
+
+  if (Object.values(TaskStatus).includes(singleValue as TaskStatus)) {
+    return singleValue as TaskStatus;
+  }
+
+  return undefined;
+}
+
 export async function getTasks(req: Request, res: Response) {
   try {
-    const status = getSingleQueryParam(req.query.status);
+    const status = parseTaskStatus(req.query.status);
 
-    const where =
+    const where: Prisma.TaskWhereInput =
       req.user?.role === "ADMIN"
         ? {
             ...(status ? { status } : {}),
@@ -90,8 +105,12 @@ export async function createTask(req: Request, res: Response) {
 
     const task = await prisma.task.create({
       data: {
-        ...parsed.data,
+        title: parsed.data.title,
+        description: parsed.data.description,
+        projectId: parsed.data.projectId,
+        assigneeId: parsed.data.assigneeId ?? null,
         dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
+        status: parsed.data.status,
         createdById: req.user.userId,
       },
       include: {
@@ -129,7 +148,7 @@ export async function updateTaskStatus(req: Request, res: Response) {
   try {
     const parsed = z
       .object({
-        status: z.enum(["TODO", "DOING", "DONE"]),
+        status: z.nativeEnum(TaskStatus),
       })
       .safeParse(req.body);
 
@@ -137,8 +156,14 @@ export async function updateTaskStatus(req: Request, res: Response) {
       return res.status(400).json({ message: "Status inválido" });
     }
 
+    const taskId = getSingleValue(req.params.id);
+
+    if (!taskId) {
+      return res.status(400).json({ message: "ID da tarefa inválido" });
+    }
+
     const task = await prisma.task.findUnique({
-      where: { id: req.params.id },
+      where: { id: taskId },
     });
 
     if (!task) {
@@ -154,7 +179,7 @@ export async function updateTaskStatus(req: Request, res: Response) {
     }
 
     const updatedTask = await prisma.task.update({
-      where: { id: req.params.id },
+      where: { id: taskId },
       data: { status: parsed.data.status },
       include: {
         project: {
