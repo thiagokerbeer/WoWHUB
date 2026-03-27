@@ -19,6 +19,10 @@ const loginSchema = z.object({
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
 });
 
+function getBanMessage(bannedUntil: Date) {
+  return `Usuário temporariamente banido até ${bannedUntil.toLocaleString("pt-BR")}`;
+}
+
 export async function register(req: Request, res: Response) {
   try {
     const parsed = registerSchema.safeParse(req.body);
@@ -71,6 +75,8 @@ export async function register(req: Request, res: Response) {
         email: user.email,
         role: user.role,
         avatar: user.avatar,
+        isBlocked: user.isBlocked,
+        bannedUntil: user.bannedUntil,
       },
     });
   } catch {
@@ -103,6 +109,18 @@ export async function login(req: Request, res: Response) {
       });
     }
 
+    if (user.isBlocked) {
+      return res.status(403).json({
+        message: "Usuário bloqueado pelo administrador",
+      });
+    }
+
+    if (user.bannedUntil && user.bannedUntil > new Date()) {
+      return res.status(403).json({
+        message: getBanMessage(user.bannedUntil),
+      });
+    }
+
     const passwordMatches = await bcrypt.compare(password, user.password);
 
     if (!passwordMatches) {
@@ -127,6 +145,8 @@ export async function login(req: Request, res: Response) {
         email: user.email,
         role: user.role,
         avatar: user.avatar,
+        isBlocked: user.isBlocked,
+        bannedUntil: user.bannedUntil,
       },
     });
   } catch {
@@ -152,9 +172,29 @@ export async function me(req: Request, res: Response) {
         email: true,
         role: true,
         avatar: true,
+        isBlocked: true,
+        bannedUntil: true,
         createdAt: true,
       },
     });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "Usuário não encontrado",
+      });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({
+        message: "Usuário bloqueado pelo administrador",
+      });
+    }
+
+    if (user.bannedUntil && user.bannedUntil > new Date()) {
+      return res.status(403).json({
+        message: getBanMessage(user.bannedUntil),
+      });
+    }
 
     return res.status(200).json(user);
   } catch {

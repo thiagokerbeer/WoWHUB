@@ -74,10 +74,38 @@ export type Task = {
   createdBy: { name: string };
 };
 
+export type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  avatar?: string | null;
+  isBlocked: boolean;
+  bannedUntil?: string | null;
+  createdAt: string;
+};
+
 export type AdminSnapshot = {
-  users: Array<{ id: string; name: string; email: string; role: string; createdAt: string }>;
-  projects: Array<{ id: string; name: string; description: string; status: string }>;
-  ticketsByStatus: Array<{ status: string; _count: { status: number } }>;
-  tasksByStatus: Array<{ status: string; _count: { status: number } }>;
-  activity: Array<{ id: string; action: string; details: string; createdAt: string; user: { name: string } }>;
+  users: AdminUser[];
+  projects: Array<{
+    id: string;
+    name: string;
+    description: string;
+    status: string;
+  }>;
+  ticketsByStatus: Array<{
+    status: string;
+    _count: { status: number };
+  }>;
+  tasksByStatus: Array<{
+    status: string;
+    _count: { status: number };
+  }>;
+  activity: Array<{
+    id: string;
+    action: string;
+    details: string;
+    createdAt: string;
+    user: { name: string };
+  }>;
 };
