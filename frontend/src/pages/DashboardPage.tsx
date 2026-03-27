@@ -18,6 +18,17 @@ function traduzirStatus(status: string) {
   return mapa[status] || status;
 }
 
+function traduzirPrioridade(priority: string) {
+  const mapa: Record<string, string> = {
+    LOW: "Baixa",
+    MEDIUM: "Média",
+    HIGH: "Alta",
+    URGENT: "Urgente",
+  };
+
+  return mapa[priority] || priority;
+}
+
 function definirSaudeOperacional(data: DashboardData) {
   const cargaAberta = data.metrics.openTickets;
   const execucao = data.metrics.tasksInProgress;
@@ -178,7 +189,7 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="page-stack">
+    <div className="page-stack dashboard-page">
       <section className="header-card wow-gradient dashboard-hero">
         <div className="dashboard-hero__content">
           <span className="eyebrow">Central de comando WoWHUB</span>
@@ -290,45 +301,58 @@ export function DashboardPage() {
       </section>
 
       <section className="content-grid">
-        <div className="panel-card">
-          <div className="panel-title-row">
-            <h2>Chamados recentes</h2>
+        <div className="panel-card dashboard-section-card">
+          <div className="panel-title-row dashboard-section-card__header">
+            <div>
+              <span className="eyebrow">Fila recente</span>
+              <h2>Chamados recentes</h2>
+            </div>
+            <span className="dashboard-section-card__count">{data.tickets.length} itens</span>
           </div>
 
-          <div className="mini-list">
+          <div className="mini-list dashboard-list">
             {data.tickets.map((ticket) => (
-              <div key={ticket.id} className="list-row">
-                <div>
+              <div key={ticket.id} className="list-row dashboard-list-row">
+                <div className="dashboard-list-row__main">
                   <strong>{ticket.title}</strong>
                   <p>
                     {ticket.user.name} • {ticket.category}
                   </p>
                 </div>
 
-                <span className={`pill ${ticket.priority.toLowerCase()}`}>
-                  {traduzirStatus(ticket.status)}
-                </span>
+                <div className="dashboard-list-row__meta">
+                  <span className={`dashboard-priority-badge ${ticket.priority.toLowerCase()}`}>
+                    {traduzirPrioridade(ticket.priority)}
+                  </span>
+                  <span className="pill neutral">{traduzirStatus(ticket.status)}</span>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="panel-card">
-          <div className="panel-title-row">
-            <h2>Tarefas recentes</h2>
+        <div className="panel-card dashboard-section-card">
+          <div className="panel-title-row dashboard-section-card__header">
+            <div>
+              <span className="eyebrow">Execução recente</span>
+              <h2>Tarefas recentes</h2>
+            </div>
+            <span className="dashboard-section-card__count">{data.tasks.length} itens</span>
           </div>
 
-          <div className="mini-list">
+          <div className="mini-list dashboard-list">
             {data.tasks.map((task) => (
-              <div key={task.id} className="list-row">
-                <div>
+              <div key={task.id} className="list-row dashboard-list-row">
+                <div className="dashboard-list-row__main">
                   <strong>{task.title}</strong>
                   <p>
                     {task.project.name} • {task.assignee?.name || "Sem responsável"}
                   </p>
                 </div>
 
-                <span className="pill neutral">{traduzirStatus(task.status)}</span>
+                <div className="dashboard-list-row__meta">
+                  <span className="pill neutral">{traduzirStatus(task.status)}</span>
+                </div>
               </div>
             ))}
           </div>
