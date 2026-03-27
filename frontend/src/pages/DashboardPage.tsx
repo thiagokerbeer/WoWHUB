@@ -24,6 +24,7 @@ function traduzirPrioridade(priority: string) {
     MEDIUM: "Média",
     HIGH: "Alta",
     URGENT: "Urgente",
+    CRITICAL: "Crítica",
   };
 
   return mapa[priority] || priority;
@@ -185,7 +186,7 @@ export function DashboardPage() {
   }, [data]);
 
   if (!data || !visaoOperacional) {
-    return <div className="panel-card">Carregando dashboard...</div>;
+    return <div className="panel-card">Carregando painel...</div>;
   }
 
   return (
@@ -193,7 +194,7 @@ export function DashboardPage() {
       <section className="header-card wow-gradient dashboard-hero">
         <div className="dashboard-hero__content">
           <span className="eyebrow">Central de comando WoWHUB</span>
-          <h1>Dashboard operacional</h1>
+          <h1>Painel operacional</h1>
           <p className="dashboard-hero__lead">
             Visão executiva da operação, com leitura rápida de carga, execução e estabilidade do ambiente.
           </p>
@@ -243,7 +244,6 @@ export function DashboardPage() {
 
             <div className="dashboard-kpi-card__top">
               <div>
-                <span className="dashboard-kpi-card__eyebrow">Indicador central</span>
                 <h3>{metrica.titulo}</h3>
               </div>
 
@@ -283,7 +283,7 @@ export function DashboardPage() {
           <article className="dashboard-overview-card">
             <span className="dashboard-overview-card__label">Taxa de resolução</span>
             <strong>{visaoOperacional.taxaResolucao}%</strong>
-            <p>Percentual de chamados resolvidos dentro do volume monitorado no dashboard.</p>
+            <p>Percentual de chamados resolvidos dentro do volume monitorado no painel.</p>
           </article>
 
           <article className="dashboard-overview-card">
