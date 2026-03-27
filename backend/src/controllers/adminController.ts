@@ -1,6 +1,11 @@
 import { Request, Response } from "express";
+import { z } from "zod";
 import { prisma } from "../config/prisma";
 import { createActivity } from "../utils/activity";
+
+const accessActionSchema = z.object({
+  action: z.enum(["BLOCK", "UNBLOCK", "BAN_5_DAYS", "BAN_30_DAYS", "CLEAR_BAN"]),
+});
 
 function addDays(days: number) {
   const date = new Date();
@@ -23,19 +28,23 @@ async function findTargetUser(userId: string) {
   });
 }
 
+function getUserSelect() {
+  return {
+    id: true,
+    name: true,
+    email: true,
+    role: true,
+    isBlocked: true,
+    bannedUntil: true,
+    createdAt: true,
+  } as const;
+}
+
 export async function getAdminSnapshot(req: Request, res: Response) {
   try {
     const [users, projects, ticketsByStatus, tasksByStatus, activity] = await Promise.all([
       prisma.user.findMany({
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          isBlocked: true,
-          bannedUntil: true,
-          createdAt: true,
-        },
+        select: getUserSelect(),
         orderBy: { createdAt: "desc" },
       }),
       prisma.project.findMany({
@@ -76,13 +85,21 @@ export async function getAdminSnapshot(req: Request, res: Response) {
   }
 }
 
-export async function blockUser(req: Request, res: Response) {
+export async function updateUserAccess(req: Request, res: Response) {
   try {
     const { id } = req.params;
+
+    const parsed = accessActionSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Ação administrativa inválida",
+      });
+    }
 
     if (req.user?.userId === id) {
       return res.status(400).json({
-        message: "Você não pode bloquear sua própria conta",
+        message: "Você não pode alterar o próprio acesso por esta área",
       });
     }
 
@@ -94,231 +111,89 @@ export async function blockUser(req: Request, res: Response) {
       });
     }
 
-    const updatedUser = await prisma.user.update({
-      where: { id },
-      data: {
-        isBlocked: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isBlocked: true,
-        bannedUntil: true,
-        createdAt: true,
-      },
-    });
+    const { action } = parsed.data;
 
-    await createActivity(
-      req.user!.userId,
-      "Admin blocked user",
-      `Blocked ${updatedUser.name} (${updatedUser.email}).`
-    );
+    let updatedUser;
+    let activityAction = "";
+    let activityDetails = "";
+    let successMessage = "";
+
+    switch (action) {
+      case "BLOCK":
+        updatedUser = await prisma.user.update({
+          where: { id },
+          data: {
+            isBlocked: true,
+          },
+          select: getUserSelect(),
+        });
+        activityAction = "Admin block";
+        activityDetails = `Blocked ${updatedUser.name} (${updatedUser.email}).`;
+        successMessage = "Usuário bloqueado com sucesso";
+        break;
+
+      case "UNBLOCK":
+        updatedUser = await prisma.user.update({
+          where: { id },
+          data: {
+            isBlocked: false,
+          },
+          select: getUserSelect(),
+        });
+        activityAction = "Admin unblock";
+        activityDetails = `Unblocked ${updatedUser.name} (${updatedUser.email}).`;
+        successMessage = "Usuário desbloqueado com sucesso";
+        break;
+
+      case "BAN_5_DAYS":
+        updatedUser = await prisma.user.update({
+          where: { id },
+          data: {
+            bannedUntil: addDays(5),
+          },
+          select: getUserSelect(),
+        });
+        activityAction = "Admin temp ban";
+        activityDetails = `Applied 5-day ban to ${updatedUser.name} (${updatedUser.email}).`;
+        successMessage = "Ban de 5 dias aplicado com sucesso";
+        break;
+
+      case "BAN_30_DAYS":
+        updatedUser = await prisma.user.update({
+          where: { id },
+          data: {
+            bannedUntil: addDays(30),
+          },
+          select: getUserSelect(),
+        });
+        activityAction = "Admin temp ban";
+        activityDetails = `Applied 30-day ban to ${updatedUser.name} (${updatedUser.email}).`;
+        successMessage = "Ban de 30 dias aplicado com sucesso";
+        break;
+
+      case "CLEAR_BAN":
+        updatedUser = await prisma.user.update({
+          where: { id },
+          data: {
+            bannedUntil: null,
+          },
+          select: getUserSelect(),
+        });
+        activityAction = "Admin clear ban";
+        activityDetails = `Removed ban from ${updatedUser.name} (${updatedUser.email}).`;
+        successMessage = "Ban removido com sucesso";
+        break;
+    }
+
+    await createActivity(req.user!.userId, activityAction, activityDetails);
 
     return res.status(200).json({
-      message: "Usuário bloqueado com sucesso",
+      message: successMessage,
       user: updatedUser,
     });
   } catch {
     return res.status(500).json({
-      message: "Erro ao bloquear usuário",
-    });
-  }
-}
-
-export async function unblockUser(req: Request, res: Response) {
-  try {
-    const { id } = req.params;
-
-    const targetUser = await findTargetUser(id);
-
-    if (!targetUser) {
-      return res.status(404).json({
-        message: "Usuário não encontrado",
-      });
-    }
-
-    const updatedUser = await prisma.user.update({
-      where: { id },
-      data: {
-        isBlocked: false,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isBlocked: true,
-        bannedUntil: true,
-        createdAt: true,
-      },
-    });
-
-    await createActivity(
-      req.user!.userId,
-      "Admin unblocked user",
-      `Unblocked ${updatedUser.name} (${updatedUser.email}).`
-    );
-
-    return res.status(200).json({
-      message: "Usuário desbloqueado com sucesso",
-      user: updatedUser,
-    });
-  } catch {
-    return res.status(500).json({
-      message: "Erro ao desbloquear usuário",
-    });
-  }
-}
-
-export async function banUserFor5Days(req: Request, res: Response) {
-  try {
-    const { id } = req.params;
-
-    if (req.user?.userId === id) {
-      return res.status(400).json({
-        message: "Você não pode banir sua própria conta",
-      });
-    }
-
-    const targetUser = await findTargetUser(id);
-
-    if (!targetUser) {
-      return res.status(404).json({
-        message: "Usuário não encontrado",
-      });
-    }
-
-    const bannedUntil = addDays(5);
-
-    const updatedUser = await prisma.user.update({
-      where: { id },
-      data: {
-        bannedUntil,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isBlocked: true,
-        bannedUntil: true,
-        createdAt: true,
-      },
-    });
-
-    await createActivity(
-      req.user!.userId,
-      "Admin banned user",
-      `Applied 5-day ban to ${updatedUser.name} (${updatedUser.email}).`
-    );
-
-    return res.status(200).json({
-      message: "Ban de 5 dias aplicado com sucesso",
-      user: updatedUser,
-    });
-  } catch {
-    return res.status(500).json({
-      message: "Erro ao aplicar ban de 5 dias",
-    });
-  }
-}
-
-export async function banUserFor30Days(req: Request, res: Response) {
-  try {
-    const { id } = req.params;
-
-    if (req.user?.userId === id) {
-      return res.status(400).json({
-        message: "Você não pode banir sua própria conta",
-      });
-    }
-
-    const targetUser = await findTargetUser(id);
-
-    if (!targetUser) {
-      return res.status(404).json({
-        message: "Usuário não encontrado",
-      });
-    }
-
-    const bannedUntil = addDays(30);
-
-    const updatedUser = await prisma.user.update({
-      where: { id },
-      data: {
-        bannedUntil,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isBlocked: true,
-        bannedUntil: true,
-        createdAt: true,
-      },
-    });
-
-    await createActivity(
-      req.user!.userId,
-      "Admin banned user",
-      `Applied 30-day ban to ${updatedUser.name} (${updatedUser.email}).`
-    );
-
-    return res.status(200).json({
-      message: "Ban de 30 dias aplicado com sucesso",
-      user: updatedUser,
-    });
-  } catch {
-    return res.status(500).json({
-      message: "Erro ao aplicar ban de 30 dias",
-    });
-  }
-}
-
-export async function removeBan(req: Request, res: Response) {
-  try {
-    const { id } = req.params;
-
-    const targetUser = await findTargetUser(id);
-
-    if (!targetUser) {
-      return res.status(404).json({
-        message: "Usuário não encontrado",
-      });
-    }
-
-    const updatedUser = await prisma.user.update({
-      where: { id },
-      data: {
-        bannedUntil: null,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isBlocked: true,
-        bannedUntil: true,
-        createdAt: true,
-      },
-    });
-
-    await createActivity(
-      req.user!.userId,
-      "Admin removed user ban",
-      `Removed ban from ${updatedUser.name} (${updatedUser.email}).`
-    );
-
-    return res.status(200).json({
-      message: "Ban removido com sucesso",
-      user: updatedUser,
-    });
-  } catch {
-    return res.status(500).json({
-      message: "Erro ao remover ban",
+      message: "Erro ao atualizar acesso do usuário",
     });
   }
 }
@@ -347,7 +222,7 @@ export async function deleteUser(req: Request, res: Response) {
 
     await createActivity(
       req.user!.userId,
-      "Admin deleted user",
+      "Admin delete user",
       `Deleted ${targetUser.name} (${targetUser.email}).`
     );
 
