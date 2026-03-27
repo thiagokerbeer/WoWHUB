@@ -4,60 +4,20 @@ import { z } from "zod";
 import { prisma } from "../config/prisma";
 import { generateToken } from "../utils/jwt";
 import { createActivity } from "../utils/activity";
-import { verifyTurnstileToken } from "../utils/turnstile";
 
 const registerSchema = z.object({
   name: z.string().trim().min(3, "Nome deve ter pelo menos 3 caracteres"),
   email: z.string().trim().toLowerCase().email("E-mail inválido"),
-  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
-  turnstileToken: z.string().min(1, "Validação de segurança obrigatória"),
+  password: z
+    .string()
+    .min(6, "Senha deve ter pelo menos 6 caracteres")
+    .max(100, "Senha muito longa"),
 });
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email("E-mail inválido"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
-  turnstileToken: z.string().min(1, "Validação de segurança obrigatória"),
 });
-
-function getRequestIp(req: Request) {
-  const cfConnectingIp = req.headers["cf-connecting-ip"];
-  const xForwardedFor = req.headers["x-forwarded-for"];
-
-  if (typeof cfConnectingIp === "string" && cfConnectingIp.trim()) {
-    return cfConnectingIp;
-  }
-
-  if (typeof xForwardedFor === "string" && xForwardedFor.trim()) {
-    return xForwardedFor;
-  }
-
-  return req.ip;
-}
-
-async function validateTurnstile(token: string, req: Request, res: Response) {
-  try {
-    const verification = await verifyTurnstileToken(token, getRequestIp(req));
-
-    if (!verification.success) {
-      return res.status(400).json({
-        message: "Falha na verificação de segurança. Tente novamente.",
-        errors: verification.errorCodes,
-      });
-    }
-
-    return null;
-  } catch (error) {
-    if (error instanceof Error && error.message === "TURNSTILE_SECRET_KEY_NOT_CONFIGURED") {
-      return res.status(500).json({
-        message: "Turnstile não configurado no backend.",
-      });
-    }
-
-    return res.status(500).json({
-      message: "Erro ao validar a verificação de segurança.",
-    });
-  }
-}
 
 export async function register(req: Request, res: Response) {
   try {
@@ -70,13 +30,7 @@ export async function register(req: Request, res: Response) {
       });
     }
 
-    const { name, email, password, turnstileToken } = parsed.data;
-
-    const turnstileError = await validateTurnstile(turnstileToken, req, res);
-
-    if (turnstileError) {
-      return turnstileError;
-    }
+    const { name, email, password } = parsed.data;
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -137,13 +91,7 @@ export async function login(req: Request, res: Response) {
       });
     }
 
-    const { email, password, turnstileToken } = parsed.data;
-
-    const turnstileError = await validateTurnstile(turnstileToken, req, res);
-
-    if (turnstileError) {
-      return turnstileError;
-    }
+    const { email, password } = parsed.data;
 
     const user = await prisma.user.findUnique({
       where: { email },
