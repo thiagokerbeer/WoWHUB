@@ -93,6 +93,11 @@ O painel administrativo já conta com ações funcionais integradas ao backend:
 - **Render** para deploy do backend
 
 ---
+Demonstração
+Frontend
+[Frontend publicado](https://wo-whub.vercel.app/)
+Backend
+[Backend publicado](https://wowhub.onrender.com)
 
 ## Arquitetura do projeto
 
@@ -255,18 +260,8 @@ deploy de aplicações em plataformas diferentes
 tratamento de regras administrativas
 polimento visual com foco em percepção de qualidade
 organização de projeto para portfólio técnico
-Demonstração
-Frontend
 
-Adicione aqui o link publicado na Vercel:
-
-[Frontend publicado](https://wo-whub.vercel.app/)
-Backend
-
-Adicione aqui o link publicado na Render:
-
-[Backend publicado](https://wowhub.onrender.com)
-Autor
+Desenvolvido por
 
 Thiago Kerber
 
