@@ -141,7 +141,39 @@ export function DashboardPage() {
     ];
   }, [data]);
 
-  if (!data) {
+  const visaoOperacional = useMemo(() => {
+    if (!data) {
+      return null;
+    }
+
+    const totalChamados = data.metrics.openTickets + data.metrics.resolvedTickets;
+    const taxaResolucao =
+      totalChamados > 0 ? Math.round((data.metrics.resolvedTickets / totalChamados) * 100) : 0;
+
+    const cargaPorUsuario =
+      data.metrics.usersCount > 0
+        ? (data.metrics.openTickets / data.metrics.usersCount).toFixed(1)
+        : "0.0";
+
+    const focoImediato =
+      data.metrics.openTickets > data.metrics.tasksInProgress
+        ? "Reduzir a fila de chamados e acelerar resposta da operação."
+        : "Sustentar a execução das tarefas em andamento sem perder ritmo de atendimento.";
+
+    const capacidadeTexto =
+      data.metrics.usersCount >= 6
+        ? "Equipe com boa cobertura para distribuir demanda."
+        : "Equipe enxuta, exigindo priorização mais disciplinada.";
+
+    return {
+      taxaResolucao,
+      cargaPorUsuario,
+      focoImediato,
+      capacidadeTexto,
+    };
+  }, [data]);
+
+  if (!data || !visaoOperacional) {
     return <div className="panel-card">Carregando dashboard...</div>;
   }
 
@@ -214,6 +246,47 @@ export function DashboardPage() {
             <p>{metrica.apoio}</p>
           </article>
         ))}
+      </section>
+
+      <section className="panel-card dashboard-overview">
+        <div className="dashboard-overview__header">
+          <div>
+            <span className="eyebrow">Visão operacional</span>
+            <h2>Leitura executiva do ambiente</h2>
+          </div>
+
+          <p className="dashboard-overview__copy">
+            Um resumo direto da carga atual, capacidade visível e foco imediato da operação.
+          </p>
+        </div>
+
+        <div className="dashboard-overview__grid">
+          <article className="dashboard-overview-card is-primary">
+            <span className="dashboard-overview-card__label">Foco imediato</span>
+            <strong>{visaoOperacional.focoImediato}</strong>
+            <p>
+              A relação entre chamados abertos e tarefas em execução indica onde a atenção precisa estar agora.
+            </p>
+          </article>
+
+          <article className="dashboard-overview-card">
+            <span className="dashboard-overview-card__label">Taxa de resolução</span>
+            <strong>{visaoOperacional.taxaResolucao}%</strong>
+            <p>Percentual de chamados resolvidos dentro do volume monitorado no dashboard.</p>
+          </article>
+
+          <article className="dashboard-overview-card">
+            <span className="dashboard-overview-card__label">Carga por usuário</span>
+            <strong>{visaoOperacional.cargaPorUsuario}</strong>
+            <p>Média de chamados abertos por usuário visível no ambiente operacional.</p>
+          </article>
+
+          <article className="dashboard-overview-card">
+            <span className="dashboard-overview-card__label">Capacidade atual</span>
+            <strong>{data.metrics.usersCount} usuários</strong>
+            <p>{visaoOperacional.capacidadeTexto}</p>
+          </article>
+        </div>
       </section>
 
       <section className="content-grid">
