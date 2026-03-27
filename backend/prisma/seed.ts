@@ -127,8 +127,7 @@ async function main() {
       data: [
         {
           action: "Ticket escalated",
-          details:
-            "High priority analytics issue moved to engineering lane.",
+          details: "High priority analytics issue moved to engineering lane.",
           userId: admin.id,
         },
         {
@@ -138,8 +137,7 @@ async function main() {
         },
         {
           action: "Support request opened",
-          details:
-            "New report mismatch ticket created by Jaina Proudmoore.",
+          details: "New report mismatch ticket created by Jaina Proudmoore.",
           userId: user.id,
         },
       ],
