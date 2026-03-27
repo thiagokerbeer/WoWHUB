@@ -1,8 +1,24 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { BrandLogo } from "../components/BrandLogo";
 import { InteractiveBackground } from "../components/InteractiveBackground";
+import { useAuth } from "../context/AuthContext";
 
 export function HomePage() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="center-screen app-background">
+        <InteractiveBackground />
+        <div className="loading-screen-card">Carregando WoWHUB...</div>
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Navigate to="/app" replace />;
+  }
+
   return (
     <div className="landing-page app-background">
       <InteractiveBackground />

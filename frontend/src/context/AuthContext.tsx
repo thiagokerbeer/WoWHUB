@@ -24,28 +24,55 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    const storedUser = localStorage.getItem("wowhub_user");
+
+    if (!storedUser) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(storedUser) as User;
+    } catch {
+      localStorage.removeItem("wowhub_user");
+      return null;
+    }
+  });
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem("wowhub_token");
+
     if (!token) {
+      localStorage.removeItem("wowhub_user");
+      setUser(null);
       setLoading(false);
       return;
     }
 
     api
       .get<User>("/auth/me")
-      .then((response) => setUser(response.data))
+      .then((response) => {
+        setUser(response.data);
+        localStorage.setItem("wowhub_user", JSON.stringify(response.data));
+      })
       .catch(() => {
         localStorage.removeItem("wowhub_token");
         localStorage.removeItem("wowhub_user");
+        setUser(null);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
-  async function handleAuth(endpoint: "/auth/login" | "/auth/register", data: LoginData | RegisterData) {
+  async function handleAuth(
+    endpoint: "/auth/login" | "/auth/register",
+    data: LoginData | RegisterData
+  ) {
     const response = await api.post<AuthResponse>(endpoint, data);
+
     localStorage.setItem("wowhub_token", response.data.token);
     localStorage.setItem("wowhub_user", JSON.stringify(response.data.user));
     setUser(response.data.user);
@@ -65,15 +92,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }
 
-  const value = useMemo(() => ({ user, loading, login, register, logout }), [user, loading]);
+  const value = useMemo(
+    () => ({
+      user,
+      loading,
+      login,
+      register,
+      logout,
+    }),
+    [user, loading]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
+
   if (!context) {
     throw new Error("useAuth must be used within AuthProvider");
   }
+
   return context;
 }
