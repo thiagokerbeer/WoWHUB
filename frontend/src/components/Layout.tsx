@@ -1,12 +1,15 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { BrandLogo } from "./BrandLogo";
+import { InteractiveBackground } from "./InteractiveBackground";
 
 export function Layout() {
   const { user, logout } = useAuth();
 
   return (
     <div className="app-shell">
+      <InteractiveBackground />
+
       <aside className="sidebar">
         <div className="brand-block">
           <BrandLogo compact subtitle="Control Center" />

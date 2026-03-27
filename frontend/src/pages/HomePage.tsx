@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
 import { BrandLogo } from "../components/BrandLogo";
+import { InteractiveBackground } from "../components/InteractiveBackground";
 
 export function HomePage() {
   return (
     <div className="landing-page app-background">
+      <InteractiveBackground />
       <div className="background-orb orb-one" />
       <div className="background-orb orb-two" />
       <div className="background-grid" />

@@ -164,9 +164,54 @@ label {
   z-index: 0;
 }
 
+.interactive-background {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.interactive-glow {
+  position: absolute;
+  border-radius: 999px;
+  will-change: transform;
+  mix-blend-mode: screen;
+  opacity: 0.95;
+}
+
+.interactive-glow-primary {
+  width: 360px;
+  height: 360px;
+  background:
+    radial-gradient(circle, rgba(157, 107, 255, 0.3) 0%, rgba(157, 107, 255, 0.12) 35%, rgba(157, 107, 255, 0) 72%);
+  filter: blur(16px);
+}
+
+.interactive-glow-secondary {
+  width: 520px;
+  height: 520px;
+  background:
+    radial-gradient(circle, rgba(74, 224, 255, 0.12) 0%, rgba(74, 224, 255, 0.06) 34%, rgba(74, 224, 255, 0) 72%);
+  filter: blur(32px);
+  opacity: 0.75;
+}
+
+.interactive-noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.08;
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.22) 0.7px, transparent 0.7px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.95), transparent 90%);
+}
+
 .brand-logo-link {
   display: inline-flex;
   align-items: center;
+  position: relative;
+  z-index: 2;
 }
 
 .brand-logo {
@@ -270,12 +315,6 @@ label {
   font-size: 0.72rem;
 }
 
-.center-screen {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-}
-
 .landing-page {
   min-height: 100vh;
   padding: 1.5rem 2rem 3rem;
@@ -308,6 +347,8 @@ label {
   display: flex;
   align-items: center;
   gap: 1rem;
+  position: relative;
+  z-index: 2;
 }
 
 .link-light {
@@ -814,5 +855,15 @@ label {
 
   .brand-logo-copy span {
     letter-spacing: 0.12em;
+  }
+
+  .interactive-glow-primary {
+    width: 280px;
+    height: 280px;
+  }
+
+  .interactive-glow-secondary {
+    width: 380px;
+    height: 380px;
   }
 }

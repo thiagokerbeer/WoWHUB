@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { BrandLogo } from "../components/BrandLogo";
+import { InteractiveBackground } from "../components/InteractiveBackground";
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -32,6 +33,7 @@ export function LoginPage() {
 
   return (
     <div className="auth-page">
+      <InteractiveBackground />
       <div className="background-orb orb-one" />
       <div className="background-orb orb-two" />
       <div className="background-grid" />
