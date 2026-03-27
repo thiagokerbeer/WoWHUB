@@ -1,6 +1,19 @@
 import { NextFunction, Request, Response } from "express";
+import { UserRole } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { verifyToken } from "../utils/jwt";
+
+type DecodedToken = {
+  userId: string;
+  role: UserRole;
+};
+
+type AuthenticatedRequest = Request & {
+  user?: {
+    userId: string;
+    role: UserRole;
+  };
+};
 
 function getBanMessage(bannedUntil: Date) {
   return `Usuário temporariamente banido até ${bannedUntil.toLocaleString("pt-BR")}`;
@@ -20,10 +33,14 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
   }
 
   try {
-    const decoded = verifyToken(token);
+    const decoded = verifyToken(token) as DecodedToken;
+
+    if (!decoded?.userId) {
+      return res.status(401).json({ message: "Token inválido" });
+    }
 
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
+      where: { id: String(decoded.userId) },
       select: {
         id: true,
         role: true,
@@ -36,20 +53,28 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       return res.status(401).json({ message: "Usuário não encontrado" });
     }
 
-    if (user.isBlocked) {
-      return res.status(403).json({ message: "Usuário bloqueado pelo administrador" });
+    if (Boolean(user.isBlocked)) {
+      return res.status(403).json({
+        message: "Usuário bloqueado pelo administrador",
+      });
     }
 
-    if (user.bannedUntil && user.bannedUntil > new Date()) {
-      return res.status(403).json({ message: getBanMessage(user.bannedUntil) });
+    const bannedUntil = user.bannedUntil ? new Date(user.bannedUntil) : null;
+
+    if (bannedUntil && bannedUntil > new Date()) {
+      return res.status(403).json({
+        message: getBanMessage(bannedUntil),
+      });
     }
 
-    req.user = {
-      userId: user.id,
-      role: user.role,
+    const authReq = req as AuthenticatedRequest;
+
+    authReq.user = {
+      userId: String(user.id),
+      role: user.role as UserRole,
     };
 
-    next();
+    return next();
   } catch {
     return res.status(401).json({ message: "Token inválido" });
   }

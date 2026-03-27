@@ -1,12 +1,16 @@
-export {};
+import "express";
 
 declare global {
   namespace Express {
+    interface UserPayload {
+      userId: string;
+      role: "ADMIN" | "USER";
+    }
+
     interface Request {
-      user?: {
-        userId: string;
-        role: "USER" | "ADMIN";
-      };
+      user?: UserPayload;
     }
   }
 }
+
+export {};

@@ -7,44 +7,92 @@ const accessActionSchema = z.object({
   action: z.enum(["BLOCK", "UNBLOCK", "BAN_5_DAYS", "BAN_30_DAYS", "CLEAR_BAN"]),
 });
 
+type AccessAction = z.infer<typeof accessActionSchema>["action"];
+
+const userSelect = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+  isBlocked: true,
+  bannedUntil: true,
+  createdAt: true,
+} as const;
+
 function addDays(days: number) {
   const date = new Date();
   date.setDate(date.getDate() + days);
   return date;
 }
 
+function normalizeParamId(id: string | string[] | undefined): string | null {
+  if (typeof id === "string" && id.trim()) {
+    return id;
+  }
+
+  if (Array.isArray(id) && typeof id[0] === "string" && id[0].trim()) {
+    return id[0];
+  }
+
+  return null;
+}
+
 async function findTargetUser(userId: string) {
   return prisma.user.findUnique({
     where: { id: userId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      isBlocked: true,
-      bannedUntil: true,
-      createdAt: true,
-    },
+    select: userSelect,
   });
 }
 
-function getUserSelect() {
-  return {
-    id: true,
-    name: true,
-    email: true,
-    role: true,
-    isBlocked: true,
-    bannedUntil: true,
-    createdAt: true,
-  } as const;
+function getActionConfig(action: AccessAction) {
+  switch (action) {
+    case "BLOCK":
+      return {
+        data: { isBlocked: true },
+        activityAction: "Admin block",
+        successMessage: "Usuário bloqueado com sucesso",
+        details: (name: string, email: string) => `Blocked ${name} (${email}).`,
+      };
+
+    case "UNBLOCK":
+      return {
+        data: { isBlocked: false },
+        activityAction: "Admin unblock",
+        successMessage: "Usuário desbloqueado com sucesso",
+        details: (name: string, email: string) => `Unblocked ${name} (${email}).`,
+      };
+
+    case "BAN_5_DAYS":
+      return {
+        data: { bannedUntil: addDays(5) },
+        activityAction: "Admin temp ban",
+        successMessage: "Ban de 5 dias aplicado com sucesso",
+        details: (name: string, email: string) => `Applied 5-day ban to ${name} (${email}).`,
+      };
+
+    case "BAN_30_DAYS":
+      return {
+        data: { bannedUntil: addDays(30) },
+        activityAction: "Admin temp ban",
+        successMessage: "Ban de 30 dias aplicado com sucesso",
+        details: (name: string, email: string) => `Applied 30-day ban to ${name} (${email}).`,
+      };
+
+    case "CLEAR_BAN":
+      return {
+        data: { bannedUntil: null },
+        activityAction: "Admin clear ban",
+        successMessage: "Ban removido com sucesso",
+        details: (name: string, email: string) => `Removed ban from ${name} (${email}).`,
+      };
+    }
 }
 
 export async function getAdminSnapshot(req: Request, res: Response) {
   try {
     const [users, projects, ticketsByStatus, tasksByStatus, activity] = await Promise.all([
       prisma.user.findMany({
-        select: getUserSelect(),
+        select: userSelect,
         orderBy: { createdAt: "desc" },
       }),
       prisma.project.findMany({
@@ -87,7 +135,13 @@ export async function getAdminSnapshot(req: Request, res: Response) {
 
 export async function updateUserAccess(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = normalizeParamId(req.params.id);
+
+    if (!id) {
+      return res.status(400).json({
+        message: "ID de usuário inválido",
+      });
+    }
 
     const parsed = accessActionSchema.safeParse(req.body);
 
@@ -97,7 +151,13 @@ export async function updateUserAccess(req: Request, res: Response) {
       });
     }
 
-    if (req.user?.userId === id) {
+    if (!req.user) {
+      return res.status(401).json({
+        message: "Não autenticado",
+      });
+    }
+
+    if (req.user.userId === id) {
       return res.status(400).json({
         message: "Você não pode alterar o próprio acesso por esta área",
       });
@@ -111,84 +171,22 @@ export async function updateUserAccess(req: Request, res: Response) {
       });
     }
 
-    const { action } = parsed.data;
+    const config = getActionConfig(parsed.data.action);
 
-    let updatedUser;
-    let activityAction = "";
-    let activityDetails = "";
-    let successMessage = "";
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: config.data,
+      select: userSelect,
+    });
 
-    switch (action) {
-      case "BLOCK":
-        updatedUser = await prisma.user.update({
-          where: { id },
-          data: {
-            isBlocked: true,
-          },
-          select: getUserSelect(),
-        });
-        activityAction = "Admin block";
-        activityDetails = `Blocked ${updatedUser.name} (${updatedUser.email}).`;
-        successMessage = "Usuário bloqueado com sucesso";
-        break;
-
-      case "UNBLOCK":
-        updatedUser = await prisma.user.update({
-          where: { id },
-          data: {
-            isBlocked: false,
-          },
-          select: getUserSelect(),
-        });
-        activityAction = "Admin unblock";
-        activityDetails = `Unblocked ${updatedUser.name} (${updatedUser.email}).`;
-        successMessage = "Usuário desbloqueado com sucesso";
-        break;
-
-      case "BAN_5_DAYS":
-        updatedUser = await prisma.user.update({
-          where: { id },
-          data: {
-            bannedUntil: addDays(5),
-          },
-          select: getUserSelect(),
-        });
-        activityAction = "Admin temp ban";
-        activityDetails = `Applied 5-day ban to ${updatedUser.name} (${updatedUser.email}).`;
-        successMessage = "Ban de 5 dias aplicado com sucesso";
-        break;
-
-      case "BAN_30_DAYS":
-        updatedUser = await prisma.user.update({
-          where: { id },
-          data: {
-            bannedUntil: addDays(30),
-          },
-          select: getUserSelect(),
-        });
-        activityAction = "Admin temp ban";
-        activityDetails = `Applied 30-day ban to ${updatedUser.name} (${updatedUser.email}).`;
-        successMessage = "Ban de 30 dias aplicado com sucesso";
-        break;
-
-      case "CLEAR_BAN":
-        updatedUser = await prisma.user.update({
-          where: { id },
-          data: {
-            bannedUntil: null,
-          },
-          select: getUserSelect(),
-        });
-        activityAction = "Admin clear ban";
-        activityDetails = `Removed ban from ${updatedUser.name} (${updatedUser.email}).`;
-        successMessage = "Ban removido com sucesso";
-        break;
-    }
-
-    await createActivity(req.user!.userId, activityAction, activityDetails);
+    await createActivity(
+      req.user.userId,
+      config.activityAction,
+      config.details(updatedUser.name, updatedUser.email)
+    );
 
     return res.status(200).json({
-      message: successMessage,
+      message: config.successMessage,
       user: updatedUser,
     });
   } catch {
@@ -200,9 +198,21 @@ export async function updateUserAccess(req: Request, res: Response) {
 
 export async function deleteUser(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = normalizeParamId(req.params.id);
 
-    if (req.user?.userId === id) {
+    if (!id) {
+      return res.status(400).json({
+        message: "ID de usuário inválido",
+      });
+    }
+
+    if (!req.user) {
+      return res.status(401).json({
+        message: "Não autenticado",
+      });
+    }
+
+    if (req.user.userId === id) {
       return res.status(400).json({
         message: "Você não pode excluir sua própria conta",
       });
@@ -221,7 +231,7 @@ export async function deleteUser(req: Request, res: Response) {
     });
 
     await createActivity(
-      req.user!.userId,
+      req.user.userId,
       "Admin delete user",
       `Deleted ${targetUser.name} (${targetUser.email}).`
     );

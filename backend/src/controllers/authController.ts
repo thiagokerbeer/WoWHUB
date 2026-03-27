@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
-import bcrypt from "bcryptjs";
+import * as bcrypt from "bcryptjs";
 import { z } from "zod";
+import { UserRole } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { generateToken } from "../utils/jwt";
 import { createActivity } from "../utils/activity";
@@ -19,8 +20,69 @@ const loginSchema = z.object({
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
 });
 
+const publicUserSelect = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+  avatar: true,
+  isBlocked: true,
+  bannedUntil: true,
+  createdAt: true,
+} as const;
+
+type PublicUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  avatar: string | null;
+  isBlocked: boolean;
+  bannedUntil: Date | null;
+  createdAt: Date;
+};
+
+type LoginUser = {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  isBlocked: boolean;
+  bannedUntil: Date | null;
+};
+
+type AuthenticatedRequest = Request & {
+  user?: {
+    userId: string;
+    role: UserRole;
+  };
+};
+
 function getBanMessage(bannedUntil: Date) {
   return `Usuário temporariamente banido até ${bannedUntil.toLocaleString("pt-BR")}`;
+}
+
+async function findPublicUserById(userId: string): Promise<PublicUser | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: publicUserSelect,
+  });
+
+  if (!user) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    avatar: user.avatar,
+    isBlocked: user.isBlocked,
+    bannedUntil: user.bannedUntil,
+    createdAt: user.createdAt,
+  };
 }
 
 export async function register(req: Request, res: Response) {
@@ -38,6 +100,7 @@ export async function register(req: Request, res: Response) {
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
+      select: { id: true },
     });
 
     if (existingUser) {
@@ -49,35 +112,43 @@ export async function register(req: Request, res: Response) {
     const hashedPassword = await bcrypt.hash(password, 10);
     const firstUser = (await prisma.user.count()) === 0;
 
-    const user = await prisma.user.create({
+    const createdUserRaw = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
-        role: firstUser ? "ADMIN" : "USER",
+        role: firstUser ? UserRole.ADMIN : UserRole.USER,
         avatar: name.slice(0, 2).toUpperCase(),
       },
+      select: publicUserSelect,
     });
 
-    await createActivity(user.id, "Account created", `${user.name} created a WoWHUB account.`);
+    const createdUser: PublicUser = {
+      id: createdUserRaw.id,
+      name: createdUserRaw.name,
+      email: createdUserRaw.email,
+      role: createdUserRaw.role,
+      avatar: createdUserRaw.avatar,
+      isBlocked: createdUserRaw.isBlocked,
+      bannedUntil: createdUserRaw.bannedUntil,
+      createdAt: createdUserRaw.createdAt,
+    };
+
+    await createActivity(
+      createdUser.id,
+      "Account created",
+      `${createdUser.name} created a WoWHUB account.`
+    );
 
     const token = generateToken({
-      userId: user.id,
-      role: user.role,
+      userId: createdUser.id,
+      role: createdUser.role,
     });
 
     return res.status(201).json({
       message: "Cadastro realizado com sucesso",
       token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
-        isBlocked: user.isBlocked,
-        bannedUntil: user.bannedUntil,
-      },
+      user: createdUser,
     });
   } catch {
     return res.status(500).json({
@@ -99,15 +170,34 @@ export async function login(req: Request, res: Response) {
 
     const { email, password } = parsed.data;
 
-    const user = await prisma.user.findUnique({
+    const userRaw = await prisma.user.findUnique({
       where: { email },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        password: true,
+        role: true,
+        isBlocked: true,
+        bannedUntil: true,
+      },
     });
 
-    if (!user) {
+    if (!userRaw) {
       return res.status(401).json({
         message: "Credenciais inválidas",
       });
     }
+
+    const user: LoginUser = {
+      id: userRaw.id,
+      name: userRaw.name,
+      email: userRaw.email,
+      password: userRaw.password,
+      role: userRaw.role,
+      isBlocked: userRaw.isBlocked,
+      bannedUntil: userRaw.bannedUntil,
+    };
 
     if (user.isBlocked) {
       return res.status(403).json({
@@ -136,18 +226,18 @@ export async function login(req: Request, res: Response) {
       role: user.role,
     });
 
+    const publicUser = await findPublicUserById(user.id);
+
+    if (!publicUser) {
+      return res.status(404).json({
+        message: "Usuário não encontrado",
+      });
+    }
+
     return res.status(200).json({
       message: "Login realizado com sucesso",
       token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
-        isBlocked: user.isBlocked,
-        bannedUntil: user.bannedUntil,
-      },
+      user: publicUser,
     });
   } catch {
     return res.status(500).json({
@@ -158,25 +248,16 @@ export async function login(req: Request, res: Response) {
 
 export async function me(req: Request, res: Response) {
   try {
-    if (!req.user) {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.userId;
+
+    if (!userId) {
       return res.status(401).json({
         message: "Não autenticado",
       });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        avatar: true,
-        isBlocked: true,
-        bannedUntil: true,
-        createdAt: true,
-      },
-    });
+    const user = await findPublicUserById(userId);
 
     if (!user) {
       return res.status(404).json({
