@@ -2,6 +2,16 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../services/api";
 import { Ticket } from "../types";
 import { useAuth } from "../context/AuthContext";
+import {
+  EmptyState,
+  NoticeBanner,
+  PageHero,
+  PanelCard,
+  PriorityBadge,
+  SkeletonBlock,
+  StatCard,
+  StatusBadge,
+} from "../components/ui";
 import "./TicketsPage.css";
 
 type TicketStatus =
@@ -106,7 +116,7 @@ function calcularSaude(
   if (total === 0) {
     return {
       label: "Fila vazia",
-      tone: "neutral",
+      tone: "neutral" as const,
       text: "Ainda não há chamados registrados neste ambiente.",
     };
   }
@@ -114,7 +124,7 @@ function calcularSaude(
   if (resolved >= open + inProgress + waiting) {
     return {
       label: "Operação estável",
-      tone: "success",
+      tone: "success" as const,
       text: "O volume resolvido já domina a fila monitorada.",
     };
   }
@@ -122,16 +132,42 @@ function calcularSaude(
   if (open >= inProgress && open >= waiting) {
     return {
       label: "Atenção na fila",
-      tone: "warning",
+      tone: "warning" as const,
       text: "Há concentração de chamados abertos esperando avanço.",
     };
   }
 
   return {
     label: "Ritmo ativo",
-    tone: "info",
+    tone: "info" as const,
     text: "O time está movimentando a fila com consistência.",
   };
+}
+
+function mapStatusTone(status: string) {
+  const mapa: Record<string, "success" | "warning" | "info" | "neutral"> = {
+    OPEN: "warning",
+    IN_PROGRESS: "info",
+    WAITING_RESPONSE: "neutral",
+    RESOLVED: "success",
+    CLOSED: "neutral",
+  };
+
+  return mapa[status] || "neutral";
+}
+
+function mapPriorityTone(priority: string) {
+  const mapa: Record<
+    string,
+    "low" | "medium" | "high" | "critical" | "neutral"
+  > = {
+    LOW: "low",
+    MEDIUM: "medium",
+    HIGH: "high",
+    CRITICAL: "critical",
+  };
+
+  return mapa[priority] || "neutral";
 }
 
 export function TicketsPage() {
@@ -220,8 +256,7 @@ export function TicketsPage() {
       (ticket) => ticket.status === "WAITING_RESPONSE"
     ).length;
     const resolved = tickets.filter(
-      (ticket) =>
-        ticket.status === "RESOLVED" || ticket.status === "CLOSED"
+      (ticket) => ticket.status === "RESOLVED" || ticket.status === "CLOSED"
     ).length;
     const critical = tickets.filter(
       (ticket) => ticket.priority === "CRITICAL"
@@ -371,122 +406,82 @@ export function TicketsPage() {
   if (loading) {
     return (
       <section className="tickets-page tickets-page--loading">
-        <div className="tickets-loading-hero shimmer" />
+        <SkeletonBlock className="tickets-loading-hero" />
         <div className="tickets-loading-grid">
-          <div className="tickets-loading-card shimmer" />
-          <div className="tickets-loading-card shimmer" />
-          <div className="tickets-loading-card shimmer" />
-          <div className="tickets-loading-card shimmer" />
+          <SkeletonBlock className="tickets-loading-card" />
+          <SkeletonBlock className="tickets-loading-card" />
+          <SkeletonBlock className="tickets-loading-card" />
+          <SkeletonBlock className="tickets-loading-card" />
         </div>
-        <div className="tickets-loading-panel shimmer" />
-        <div className="tickets-loading-panel shimmer" />
+        <SkeletonBlock className="tickets-loading-panel" />
+        <SkeletonBlock className="tickets-loading-panel" />
       </section>
     );
   }
 
   return (
     <section className="tickets-page">
-      <header className="tickets-hero">
-        <div className="tickets-hero__content">
-          <span className="tickets-eyebrow">Central de suporte</span>
-          <h1>Fila operacional de chamados</h1>
-          <p>
-            Acompanhe incidentes, mova status com clareza e registre contexto
-            útil para manter a operação viva, rastreável e organizada.
-          </p>
-
-          <div className="tickets-hero__chips">
-            <span className="tickets-chip">Fluxo de suporte</span>
-            <span className="tickets-chip">Histórico comentado</span>
-            <span className="tickets-chip">Prioridade visível</span>
-          </div>
-        </div>
-
-        <div className="tickets-hero__sidecard">
-          <div className="tickets-hero__sidecard-top">
-            <span className="tickets-eyebrow">Saúde da fila</span>
-            <span
-              className={`tickets-status-badge tickets-status-badge--${metricas.health.tone}`}
-            >
-              {refreshing ? "Atualizando..." : metricas.health.label}
-            </span>
-          </div>
-
-          <p>{metricas.health.text}</p>
-
-          <div className="tickets-hero__mini-grid">
-            <div className="tickets-mini-stat">
-              <span>Total</span>
-              <strong>{metricas.total}</strong>
-            </div>
-            <div className="tickets-mini-stat">
-              <span>Abertos</span>
-              <strong>{metricas.open}</strong>
-            </div>
-            <div className="tickets-mini-stat">
-              <span>Resolvidos</span>
-              <strong>{metricas.resolved}</strong>
-            </div>
-          </div>
-        </div>
-      </header>
+      <PageHero
+        eyebrow="Central de suporte"
+        title="Fila operacional de chamados"
+        description="Acompanhe incidentes, mova status com clareza e registre contexto útil para manter a operação viva, rastreável e organizada."
+        chips={["Fluxo de suporte", "Histórico comentado", "Prioridade visível"]}
+        sideEyebrow="Saúde da fila"
+        sideBadge={
+          <StatusBadge
+            label={refreshing ? "Atualizando..." : metricas.health.label}
+            tone={metricas.health.tone}
+          />
+        }
+        sideDescription={metricas.health.text}
+        miniStats={[
+          { label: "Total", value: metricas.total },
+          { label: "Abertos", value: metricas.open },
+          { label: "Resolvidos", value: metricas.resolved },
+        ]}
+      />
 
       {notice ? (
-        <div
-          className={`tickets-notice tickets-notice--${notice.type}`}
-          role="status"
-          aria-live="polite"
-        >
-          <div>
-            <strong>{notice.title}</strong>
-            <p>{notice.message}</p>
-          </div>
-
-          <button type="button" onClick={() => setNotice(null)}>
-            ×
-          </button>
-        </div>
+        <NoticeBanner
+          type={notice.type}
+          title={notice.title}
+          message={notice.message}
+          onClose={() => setNotice(null)}
+        />
       ) : null}
 
       <section className="tickets-stats-grid">
-        <article className="tickets-stat-card">
-          <span className="tickets-stat-card__label">Abertos</span>
-          <strong>{metricas.open}</strong>
-          <p>Chamados aguardando resposta ou início de atendimento.</p>
-        </article>
+        <StatCard
+          label="Abertos"
+          value={metricas.open}
+          description="Chamados aguardando resposta ou início de atendimento."
+        />
 
-        <article className="tickets-stat-card">
-          <span className="tickets-stat-card__label">Em andamento</span>
-          <strong>{metricas.inProgress}</strong>
-          <p>Itens sendo tratados pela operação neste momento.</p>
-        </article>
+        <StatCard
+          label="Em andamento"
+          value={metricas.inProgress}
+          description="Itens sendo tratados pela operação neste momento."
+        />
 
-        <article className="tickets-stat-card">
-          <span className="tickets-stat-card__label">Aguardando</span>
-          <strong>{metricas.waiting}</strong>
-          <p>Chamados esperando retorno para seguir no fluxo.</p>
-        </article>
+        <StatCard
+          label="Aguardando"
+          value={metricas.waiting}
+          description="Chamados esperando retorno para seguir no fluxo."
+        />
 
-        <article className="tickets-stat-card">
-          <span className="tickets-stat-card__label">Críticos</span>
-          <strong>{metricas.critical}</strong>
-          <p>Itens com prioridade máxima dentro da fila.</p>
-        </article>
+        <StatCard
+          label="Críticos"
+          value={metricas.critical}
+          description="Itens com prioridade máxima dentro da fila."
+        />
       </section>
 
       <div className="tickets-layout">
-        <aside className="tickets-form-card">
-          <div className="tickets-panel-card__header">
-            <div>
-              <span className="tickets-eyebrow">Novo chamado</span>
-              <h2>Abrir solicitação</h2>
-              <p className="tickets-panel-card__subtitle">
-                Registre o problema com clareza para acelerar a resposta da
-                operação.
-              </p>
-            </div>
-          </div>
-
+        <PanelCard
+          eyebrow="Novo chamado"
+          title="Abrir solicitação"
+          subtitle="Registre o problema com clareza para acelerar a resposta da operação."
+        >
           <form className="tickets-form" onSubmit={handleCreateTicket}>
             <label className="tickets-input-wrap">
               <span>Título</span>
@@ -566,75 +561,69 @@ export function TicketsPage() {
               {creating ? "Abrindo chamado..." : "Abrir chamado"}
             </button>
           </form>
-        </aside>
+        </PanelCard>
 
         <section className="tickets-main-column">
-          <article className="tickets-panel-card">
-            <div className="tickets-panel-card__header tickets-panel-card__header--stacked">
-              <div>
-                <span className="tickets-eyebrow">Painel de atendimento</span>
-                <h2>Fila de chamados</h2>
-                <p className="tickets-panel-card__subtitle">
-                  Filtre prioridades, acompanhe contexto e mova a fila com mais
-                  previsibilidade.
-                </p>
-              </div>
+          <PanelCard
+            eyebrow="Painel de atendimento"
+            title="Fila de chamados"
+            subtitle="Filtre prioridades, acompanhe contexto e mova a fila com mais previsibilidade."
+            stacked
+          >
+            <div className="tickets-toolbar">
+              <label className="tickets-input-wrap">
+                <span>Buscar</span>
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Título, descrição, solicitante ou categoria"
+                />
+              </label>
 
-              <div className="tickets-toolbar">
-                <label className="tickets-input-wrap">
-                  <span>Buscar</span>
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Título, descrição, solicitante ou categoria"
-                  />
-                </label>
-
-                <label className="tickets-input-wrap tickets-input-wrap--compact">
-                  <span>Status</span>
-                  <select
-                    value={statusFilter}
-                    onChange={(event) =>
-                      setStatusFilter(event.target.value as "ALL" | TicketStatus)
-                    }
-                  >
-                    <option value="ALL">Todos</option>
-                    <option value="OPEN">Aberto</option>
-                    <option value="IN_PROGRESS">Em andamento</option>
-                    <option value="WAITING_RESPONSE">
-                      Aguardando resposta
-                    </option>
-                    <option value="RESOLVED">Resolvido</option>
-                    <option value="CLOSED">Fechado</option>
-                  </select>
-                </label>
-
-                <label className="tickets-input-wrap tickets-input-wrap--compact">
-                  <span>Prioridade</span>
-                  <select
-                    value={priorityFilter}
-                    onChange={(event) =>
-                      setPriorityFilter(
-                        event.target.value as "ALL" | TicketPriority
-                      )
-                    }
-                  >
-                    <option value="ALL">Todas</option>
-                    <option value="LOW">Baixa</option>
-                    <option value="MEDIUM">Média</option>
-                    <option value="HIGH">Alta</option>
-                    <option value="CRITICAL">Crítica</option>
-                  </select>
-                </label>
-
-                <button
-                  type="button"
-                  className="tickets-ghost-button"
-                  onClick={() => loadTickets({ silent: true })}
+              <label className="tickets-input-wrap tickets-input-wrap--compact">
+                <span>Status</span>
+                <select
+                  value={statusFilter}
+                  onChange={(event) =>
+                    setStatusFilter(event.target.value as "ALL" | TicketStatus)
+                  }
                 >
-                  Atualizar
-                </button>
-              </div>
+                  <option value="ALL">Todos</option>
+                  <option value="OPEN">Aberto</option>
+                  <option value="IN_PROGRESS">Em andamento</option>
+                  <option value="WAITING_RESPONSE">
+                    Aguardando resposta
+                  </option>
+                  <option value="RESOLVED">Resolvido</option>
+                  <option value="CLOSED">Fechado</option>
+                </select>
+              </label>
+
+              <label className="tickets-input-wrap tickets-input-wrap--compact">
+                <span>Prioridade</span>
+                <select
+                  value={priorityFilter}
+                  onChange={(event) =>
+                    setPriorityFilter(
+                      event.target.value as "ALL" | TicketPriority
+                    )
+                  }
+                >
+                  <option value="ALL">Todas</option>
+                  <option value="LOW">Baixa</option>
+                  <option value="MEDIUM">Média</option>
+                  <option value="HIGH">Alta</option>
+                  <option value="CRITICAL">Crítica</option>
+                </select>
+              </label>
+
+              <button
+                type="button"
+                className="tickets-ghost-button"
+                onClick={() => loadTickets({ silent: true })}
+              >
+                Atualizar
+              </button>
             </div>
 
             <div className="tickets-toolbar__meta">
@@ -649,16 +638,15 @@ export function TicketsPage() {
                 </span>
               ) : null}
             </div>
-          </article>
+          </PanelCard>
 
           {ticketsFiltrados.length === 0 ? (
             <article className="tickets-empty-state">
-              <span className="tickets-eyebrow">Sem chamados</span>
-              <h2>Nenhum item encontrado</h2>
-              <p>
-                Ajuste os filtros ou abra um novo chamado para iniciar a fila de
-                atendimento.
-              </p>
+              <EmptyState
+                eyebrow="Sem chamados"
+                title="Nenhum item encontrado"
+                description="Ajuste os filtros ou abra um novo chamado para iniciar a fila de atendimento."
+              />
             </article>
           ) : (
             <div className="tickets-list">
@@ -685,17 +673,15 @@ export function TicketsPage() {
                       </div>
 
                       <div className="ticket-card__badges">
-                        <span
-                          className={`tickets-priority-badge tickets-priority-badge--${ticket.priority.toLowerCase()}`}
-                        >
-                          {traduzirPrioridade(ticket.priority)}
-                        </span>
+                        <PriorityBadge
+                          label={traduzirPrioridade(ticket.priority)}
+                          tone={mapPriorityTone(ticket.priority)}
+                        />
 
-                        <span
-                          className={`tickets-status-badge tickets-status-badge--${ticket.status.toLowerCase()}`}
-                        >
-                          {traduzirStatus(ticket.status)}
-                        </span>
+                        <StatusBadge
+                          label={traduzirStatus(ticket.status)}
+                          tone={mapStatusTone(ticket.status)}
+                        />
                       </div>
                     </div>
 

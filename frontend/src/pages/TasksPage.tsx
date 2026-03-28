@@ -2,6 +2,15 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../services/api";
 import type { AdminSnapshot, AdminUser, Task } from "../types";
 import { useAuth } from "../context/AuthContext";
+import {
+  EmptyState,
+  NoticeBanner,
+  PageHero,
+  PanelCard,
+  SkeletonBlock,
+  StatCard,
+  StatusBadge,
+} from "../components/ui";
 import "./TasksPage.css";
 
 type TaskStatus = "TODO" | "DOING" | "DONE";
@@ -61,7 +70,7 @@ function getTaskHealth(todo: number, doing: number, done: number) {
   if (total === 0) {
     return {
       label: "Fluxo vazio",
-      tone: "neutral",
+      tone: "neutral" as const,
       text: "Ainda não há tarefas registradas na operação.",
     };
   }
@@ -69,7 +78,7 @@ function getTaskHealth(todo: number, doing: number, done: number) {
   if (doing > todo && doing >= done) {
     return {
       label: "Execução aquecida",
-      tone: "info",
+      tone: "info" as const,
       text: "O maior volume está em andamento neste momento.",
     };
   }
@@ -77,14 +86,14 @@ function getTaskHealth(todo: number, doing: number, done: number) {
   if (done >= todo + doing) {
     return {
       label: "Entrega estável",
-      tone: "success",
+      tone: "success" as const,
       text: "A maior parte do fluxo está concluída.",
     };
   }
 
   return {
     label: "Fila em formação",
-    tone: "warning",
+    tone: "warning" as const,
     text: "Há acúmulo de itens esperando execução.",
   };
 }
@@ -106,6 +115,16 @@ function buildErrorMessage(error: unknown, fallback: string) {
   }
 
   return fallback;
+}
+
+function mapStatusTone(status: string) {
+  const mapa: Record<string, "success" | "warning" | "info" | "neutral"> = {
+    TODO: "warning",
+    DOING: "info",
+    DONE: "success",
+  };
+
+  return mapa[status] || "neutral";
 }
 
 export function TasksPage() {
@@ -306,123 +325,85 @@ export function TasksPage() {
   if (loading) {
     return (
       <section className="tasks-page tasks-page--loading">
-        <div className="tasks-loading-hero shimmer" />
+        <SkeletonBlock className="tasks-loading-hero" />
+
         <div className="tasks-loading-grid">
-          <div className="tasks-loading-card shimmer" />
-          <div className="tasks-loading-card shimmer" />
-          <div className="tasks-loading-card shimmer" />
-          <div className="tasks-loading-card shimmer" />
+          <SkeletonBlock className="tasks-loading-card" />
+          <SkeletonBlock className="tasks-loading-card" />
+          <SkeletonBlock className="tasks-loading-card" />
+          <SkeletonBlock className="tasks-loading-card" />
         </div>
-        <div className="tasks-loading-panel shimmer" />
-        <div className="tasks-loading-panel shimmer" />
+
+        <SkeletonBlock className="tasks-loading-panel" />
+        <SkeletonBlock className="tasks-loading-panel" />
       </section>
     );
   }
 
   return (
     <section className="tasks-page">
-      <header className="tasks-hero">
-        <div className="tasks-hero__content">
-          <span className="tasks-eyebrow">Trilha de execução</span>
-          <h1>Fila operacional de tarefas</h1>
-          <p>
-            Coordene execução, acompanhe responsáveis e mantenha o ritmo do
-            ambiente com leitura clara de status, carga e andamento.
-          </p>
-
-          <div className="tasks-hero__chips">
-            <span className="tasks-chip">Execução orientada</span>
-            <span className="tasks-chip">Status em tempo real</span>
-            <span className="tasks-chip">Organização por projeto</span>
-          </div>
-        </div>
-
-        <div className="tasks-hero__sidecard">
-          <div className="tasks-hero__sidecard-top">
-            <span className="tasks-eyebrow">Saúde do fluxo</span>
-            <span
-              className={`tasks-status-badge tasks-status-badge--${metricas.health.tone}`}
-            >
-              {refreshing ? "Atualizando..." : metricas.health.label}
-            </span>
-          </div>
-
-          <p>{metricas.health.text}</p>
-
-          <div className="tasks-hero__mini-grid">
-            <div className="tasks-mini-stat">
-              <span>Total</span>
-              <strong>{metricas.total}</strong>
-            </div>
-            <div className="tasks-mini-stat">
-              <span>Em execução</span>
-              <strong>{metricas.doing}</strong>
-            </div>
-            <div className="tasks-mini-stat">
-              <span>Concluídas</span>
-              <strong>{metricas.done}</strong>
-            </div>
-          </div>
-        </div>
-      </header>
+      <PageHero
+        eyebrow="Trilha de execução"
+        title="Fila operacional de tarefas"
+        description="Coordene execução, acompanhe responsáveis e mantenha o ritmo do ambiente com leitura clara de status, carga e andamento."
+        chips={["Execução orientada", "Status em tempo real", "Organização por projeto"]}
+        sideEyebrow="Saúde do fluxo"
+        sideBadge={
+          <StatusBadge
+            label={refreshing ? "Atualizando..." : metricas.health.label}
+            tone={metricas.health.tone}
+          />
+        }
+        sideDescription={metricas.health.text}
+        miniStats={[
+          { label: "Total", value: metricas.total },
+          { label: "Em execução", value: metricas.doing },
+          { label: "Concluídas", value: metricas.done },
+        ]}
+      />
 
       {notice ? (
-        <div
-          className={`tasks-notice tasks-notice--${notice.type}`}
-          role="status"
-          aria-live="polite"
-        >
-          <div>
-            <strong>{notice.title}</strong>
-            <p>{notice.message}</p>
-          </div>
-
-          <button type="button" onClick={() => setNotice(null)}>
-            ×
-          </button>
-        </div>
+        <NoticeBanner
+          type={notice.type}
+          title={notice.title}
+          message={notice.message}
+          onClose={() => setNotice(null)}
+        />
       ) : null}
 
       <section className="tasks-stats-grid">
-        <article className="tasks-stat-card">
-          <span className="tasks-stat-card__label">A fazer</span>
-          <strong>{metricas.todo}</strong>
-          <p>Itens aguardando entrada no ritmo de execução.</p>
-        </article>
+        <StatCard
+          label="A fazer"
+          value={metricas.todo}
+          description="Itens aguardando entrada no ritmo de execução."
+        />
 
-        <article className="tasks-stat-card">
-          <span className="tasks-stat-card__label">Em execução</span>
-          <strong>{metricas.doing}</strong>
-          <p>Tarefas em movimento dentro dos projetos ativos.</p>
-        </article>
+        <StatCard
+          label="Em execução"
+          value={metricas.doing}
+          description="Tarefas em movimento dentro dos projetos ativos."
+        />
 
-        <article className="tasks-stat-card">
-          <span className="tasks-stat-card__label">Concluídas</span>
-          <strong>{metricas.done}</strong>
-          <p>Volume já entregue e devolvido ao fluxo operacional.</p>
-        </article>
+        <StatCard
+          label="Concluídas"
+          value={metricas.done}
+          description="Volume já entregue e devolvido ao fluxo operacional."
+        />
 
-        <article className="tasks-stat-card">
-          <span className="tasks-stat-card__label">Total monitorado</span>
-          <strong>{metricas.total}</strong>
-          <p>Leitura consolidada da fila atual de execução.</p>
-        </article>
+        <StatCard
+          label="Total monitorado"
+          value={metricas.total}
+          description="Leitura consolidada da fila atual de execução."
+        />
       </section>
 
       <div className="tasks-layout">
         {user?.role === "ADMIN" ? (
-          <aside className="tasks-form-card">
-            <div className="tasks-panel-card__header">
-              <div>
-                <span className="tasks-eyebrow">Nova tarefa</span>
-                <h2>Criar item de execução</h2>
-                <p className="tasks-panel-card__subtitle">
-                  Registre a atividade com contexto claro para orientar quem vai
-                  executar.
-                </p>
-              </div>
-            </div>
-
+          <PanelCard
+            eyebrow="Nova tarefa"
+            title="Criar item de execução"
+            subtitle="Registre a atividade com contexto claro para orientar quem vai executar."
+          >
             <form className="tasks-form" onSubmit={handleCreate}>
               <label className="tasks-input-wrap">
                 <span>Título</span>
@@ -523,52 +504,46 @@ export function TasksPage() {
                 {creating ? "Criando tarefa..." : "Criar tarefa"}
               </button>
             </form>
-          </aside>
+          </PanelCard>
         ) : null}
 
         <section className="tasks-main-column">
-          <article className="tasks-panel-card">
-            <div className="tasks-panel-card__header tasks-panel-card__header--stacked">
-              <div>
-                <span className="tasks-eyebrow">Painel de execução</span>
-                <h2>Fila de tarefas</h2>
-                <p className="tasks-panel-card__subtitle">
-                  Filtre por status, localize contexto e mova o fluxo com mais
-                  clareza.
-                </p>
-              </div>
+          <PanelCard
+            eyebrow="Painel de execução"
+            title="Fila de tarefas"
+            subtitle="Filtre por status, localize contexto e mova o fluxo com mais clareza."
+            stacked
+          >
+            <div className="tasks-toolbar">
+              <label className="tasks-input-wrap">
+                <span>Buscar</span>
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Título, projeto, responsável ou descrição"
+                />
+              </label>
 
-              <div className="tasks-toolbar">
-                <label className="tasks-input-wrap">
-                  <span>Buscar</span>
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Título, projeto, responsável ou descrição"
-                  />
-                </label>
-
-                <label className="tasks-input-wrap tasks-input-wrap--compact">
-                  <span>Status</span>
-                  <select
-                    value={statusFilter}
-                    onChange={(event) => setStatusFilter(event.target.value)}
-                  >
-                    <option value="ALL">Todos</option>
-                    <option value="TODO">A fazer</option>
-                    <option value="DOING">Em execução</option>
-                    <option value="DONE">Concluída</option>
-                  </select>
-                </label>
-
-                <button
-                  type="button"
-                  className="tasks-ghost-button"
-                  onClick={() => loadTasks({ silent: true })}
+              <label className="tasks-input-wrap tasks-input-wrap--compact">
+                <span>Status</span>
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value)}
                 >
-                  Atualizar
-                </button>
-              </div>
+                  <option value="ALL">Todos</option>
+                  <option value="TODO">A fazer</option>
+                  <option value="DOING">Em execução</option>
+                  <option value="DONE">Concluída</option>
+                </select>
+              </label>
+
+              <button
+                type="button"
+                className="tasks-ghost-button"
+                onClick={() => loadTasks({ silent: true })}
+              >
+                Atualizar
+              </button>
             </div>
 
             <div className="tasks-toolbar__meta">
@@ -578,19 +553,20 @@ export function TasksPage() {
               </span>
 
               {refreshing ? (
-                <span className="tasks-refreshing-text">Sincronizando fila...</span>
+                <span className="tasks-refreshing-text">
+                  Sincronizando fila...
+                </span>
               ) : null}
             </div>
-          </article>
+          </PanelCard>
 
           {tarefasFiltradas.length === 0 ? (
             <article className="tasks-empty-state">
-              <span className="tasks-eyebrow">Sem itens</span>
-              <h2>Nenhuma tarefa encontrada</h2>
-              <p>
-                Ajuste os filtros ou crie uma nova tarefa para iniciar o fluxo
-                de execução.
-              </p>
+              <EmptyState
+                eyebrow="Sem itens"
+                title="Nenhuma tarefa encontrada"
+                description="Ajuste os filtros ou crie uma nova tarefa para iniciar o fluxo de execução."
+              />
             </article>
           ) : (
             <div className="tasks-list">
@@ -614,11 +590,10 @@ export function TasksPage() {
                       </div>
 
                       <div className="task-card__badges">
-                        <span
-                          className={`tasks-status-badge tasks-status-badge--${task.status.toLowerCase()}`}
-                        >
-                          {traduzirStatus(task.status)}
-                        </span>
+                        <StatusBadge
+                          label={traduzirStatus(task.status)}
+                          tone={mapStatusTone(task.status)}
+                        />
                       </div>
                     </div>
 

@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../services/api";
 import type { AdminSnapshot, AdminUser } from "../types";
+import {
+  EmptyState,
+  NoticeBanner,
+  PageHero,
+  PanelCard,
+  SkeletonBlock,
+  StatCard,
+  StatusBadge,
+} from "../components/ui";
 import "./AdminPage.css";
 
 type AccessAction =
@@ -52,7 +61,7 @@ function descreverStatusUsuario(user: AdminUser) {
   if (user.isBlocked) {
     return {
       label: "Bloqueado",
-      tone: "danger",
+      tone: "danger" as const,
       extra: "Conta bloqueada manualmente pelo admin",
     };
   }
@@ -60,14 +69,14 @@ function descreverStatusUsuario(user: AdminUser) {
   if (usuarioTemBanAtivo(user.bannedUntil)) {
     return {
       label: "Ban temporário",
-      tone: "warning",
+      tone: "warning" as const,
       extra: `Até ${formatarData(user.bannedUntil)}`,
     };
   }
 
   return {
     label: "Ativo",
-    tone: "success",
+    tone: "success" as const,
     extra: "Acesso liberado",
   };
 }
@@ -333,15 +342,15 @@ export function AdminPage() {
   if (isBootLoading) {
     return (
       <section className="admin-page admin-page--loading">
-        <div className="admin-loading-hero shimmer" />
+        <SkeletonBlock className="admin-loading-hero" />
         <div className="admin-loading-grid">
-          <div className="admin-loading-card shimmer" />
-          <div className="admin-loading-card shimmer" />
-          <div className="admin-loading-card shimmer" />
-          <div className="admin-loading-card shimmer" />
+          <SkeletonBlock className="admin-loading-card" />
+          <SkeletonBlock className="admin-loading-card" />
+          <SkeletonBlock className="admin-loading-card" />
+          <SkeletonBlock className="admin-loading-card" />
         </div>
-        <div className="admin-loading-panel shimmer" />
-        <div className="admin-loading-panel shimmer" />
+        <SkeletonBlock className="admin-loading-panel" />
+        <SkeletonBlock className="admin-loading-panel" />
       </section>
     );
   }
@@ -350,21 +359,20 @@ export function AdminPage() {
     return (
       <section className="admin-empty-state">
         <div className="admin-empty-state__card">
-          <span className="admin-chip admin-chip--danger">
-            Painel indisponível
-          </span>
-          <h1>Não foi possível carregar a central administrativa</h1>
-          <p>
-            O ambiente não conseguiu buscar os dados do painel. Tente novamente
-            para restaurar a leitura operacional.
-          </p>
-          <button
-            type="button"
-            className="admin-primary-button"
-            onClick={() => loadSnapshot()}
-          >
-            Tentar novamente
-          </button>
+          <EmptyState
+            eyebrow="Painel indisponível"
+            title="Não foi possível carregar a central administrativa"
+            description="O ambiente não conseguiu buscar os dados do painel. Tente novamente para restaurar a leitura operacional."
+            action={
+              <button
+                type="button"
+                className="admin-primary-button"
+                onClick={() => loadSnapshot()}
+              >
+                Tentar novamente
+              </button>
+            }
+          />
         </div>
       </section>
     );
@@ -372,108 +380,63 @@ export function AdminPage() {
 
   return (
     <section className="admin-page">
-      <header className="admin-hero">
-        <div className="admin-hero__content">
-          <span className="admin-eyebrow">Central administrativa WoWHUB</span>
-          <h1>Controle de usuários e saúde operacional</h1>
-          <p>
-            Gerencie permissões, bloqueios e banimentos com leitura rápida do
-            ambiente e resposta mais segura sobre o acesso à plataforma.
-          </p>
-
-          <div className="admin-hero__chips">
-            <span className="admin-chip">Gestão de acesso</span>
-            <span className="admin-chip">Monitoramento rápido</span>
-            <span className="admin-chip">Operação protegida</span>
-          </div>
-        </div>
-
-        <div className="admin-hero__sidecard">
-          <div className="admin-hero__sidecard-top">
-            <span className="admin-eyebrow">Panorama atual</span>
-            {isRefreshing ? (
-              <span className="admin-status-badge admin-status-badge--info">
-                Atualizando...
-              </span>
-            ) : (
-              <span className="admin-status-badge admin-status-badge--success">
-                Sincronizado
-              </span>
-            )}
-          </div>
-
-          <p>
-            Usuários ativos, fluxo administrativo e disciplina operacional
-            concentrados em um único painel.
-          </p>
-
-          <div className="admin-hero__mini-grid">
-            <div className="admin-mini-stat">
-              <span>Total de usuários</span>
-              <strong>{metrics.totalUsers}</strong>
-            </div>
-            <div className="admin-mini-stat">
-              <span>Admins</span>
-              <strong>{metrics.adminUsers}</strong>
-            </div>
-            <div className="admin-mini-stat">
-              <span>Projetos</span>
-              <strong>{metrics.projects}</strong>
-            </div>
-          </div>
-        </div>
-      </header>
+      <PageHero
+        eyebrow="Central administrativa WoWHUB"
+        title="Controle de usuários e saúde operacional"
+        description="Gerencie permissões, bloqueios e banimentos com leitura rápida do ambiente e resposta mais segura sobre o acesso à plataforma."
+        chips={["Gestão de acesso", "Monitoramento rápido", "Operação protegida"]}
+        sideEyebrow="Panorama atual"
+        sideBadge={
+          <StatusBadge
+            label={isRefreshing ? "Atualizando..." : "Sincronizado"}
+            tone={isRefreshing ? "info" : "success"}
+          />
+        }
+        sideDescription="Usuários ativos, fluxo administrativo e disciplina operacional concentrados em um único painel."
+        miniStats={[
+          { label: "Total de usuários", value: metrics.totalUsers },
+          { label: "Admins", value: metrics.adminUsers },
+          { label: "Projetos", value: metrics.projects },
+        ]}
+      />
 
       {notice ? (
-        <div
-          className={`admin-notice admin-notice--${notice.type}`}
-          role="status"
-          aria-live="polite"
-        >
-          <div>
-            <strong>{notice.title}</strong>
-            <p>{notice.message}</p>
-          </div>
-
-          <button type="button" onClick={() => setNotice(null)}>
-            ×
-          </button>
-        </div>
+        <NoticeBanner
+          type={notice.type}
+          title={notice.title}
+          message={notice.message}
+          onClose={() => setNotice(null)}
+        />
       ) : null}
 
       <section className="admin-stats-grid">
-        <article className="admin-stat-card">
-          <span className="admin-stat-card__label">Usuários ativos</span>
-          <strong>{metrics.activeUsers}</strong>
-          <p>Acesso normal e sem banimento temporário ativo.</p>
-        </article>
-
-        <article className="admin-stat-card">
-          <span className="admin-stat-card__label">Bloqueados</span>
-          <strong>{metrics.blockedUsers}</strong>
-          <p>Contas com bloqueio manual no ambiente.</p>
-        </article>
-
-        <article className="admin-stat-card">
-          <span className="admin-stat-card__label">Banimentos ativos</span>
-          <strong>{metrics.bannedUsers}</strong>
-          <p>Usuários com restrição temporária em vigor.</p>
-        </article>
-
-        <article className="admin-stat-card">
-          <span className="admin-stat-card__label">Projetos ativos</span>
-          <strong>{metrics.projects}</strong>
-          <p>Estruturas vivas dentro do ambiente SaaS.</p>
-        </article>
+        <StatCard
+          label="Usuários ativos"
+          value={metrics.activeUsers}
+          description="Acesso normal e sem banimento temporário ativo."
+        />
+        <StatCard
+          label="Bloqueados"
+          value={metrics.blockedUsers}
+          description="Contas com bloqueio manual no ambiente."
+        />
+        <StatCard
+          label="Banimentos ativos"
+          value={metrics.bannedUsers}
+          description="Usuários com restrição temporária em vigor."
+        />
+        <StatCard
+          label="Projetos ativos"
+          value={metrics.projects}
+          description="Estruturas vivas dentro do ambiente SaaS."
+        />
       </section>
 
       <section className="admin-summary-grid">
-        <article className="admin-panel-card">
-          <div className="admin-panel-card__header">
-            <div>
-              <span className="admin-eyebrow">Leitura operacional</span>
-              <h2>Visão executiva do ambiente</h2>
-            </div>
+        <PanelCard
+          eyebrow="Leitura operacional"
+          title="Visão executiva do ambiente"
+          action={
             <button
               type="button"
               className="admin-ghost-button"
@@ -481,8 +444,8 @@ export function AdminPage() {
             >
               Atualizar painel
             </button>
-          </div>
-
+          }
+        >
           <div className="admin-summary-metrics">
             <div className="admin-summary-metric">
               <span>Chamados monitorados</span>
@@ -505,16 +468,9 @@ export function AdminPage() {
               <strong>{metrics.doneTasks}</strong>
             </div>
           </div>
-        </article>
+        </PanelCard>
 
-        <article className="admin-panel-card">
-          <div className="admin-panel-card__header">
-            <div>
-              <span className="admin-eyebrow">Risco e estabilidade</span>
-              <h2>Status do acesso</h2>
-            </div>
-          </div>
-
+        <PanelCard eyebrow="Risco e estabilidade" title="Status do acesso">
           <div className="admin-health-list">
             <div className="admin-health-item">
               <span className="admin-health-item__title">Cobertura ativa</span>
@@ -538,54 +494,47 @@ export function AdminPage() {
               <p>Perfis com controle avançado sobre o sistema.</p>
             </div>
           </div>
-        </article>
+        </PanelCard>
       </section>
 
-      <section className="admin-panel-card">
-        <div className="admin-panel-card__header admin-panel-card__header--stacked">
-          <div>
-            <span className="admin-eyebrow">Gestão de usuários</span>
-            <h2>Controle de acesso da plataforma</h2>
-            <p className="admin-panel-card__subtitle">
-              Filtre perfis, localize contas e aplique ações administrativas com
-              feedback imediato.
-            </p>
-          </div>
+      <PanelCard
+        eyebrow="Gestão de usuários"
+        title="Controle de acesso da plataforma"
+        subtitle="Filtre perfis, localize contas e aplique ações administrativas com feedback imediato."
+        stacked
+      >
+        <div className="admin-users-toolbar">
+          <label className="admin-input-wrap">
+            <span>Buscar</span>
+            <input
+              type="text"
+              placeholder="Nome ou e-mail"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </label>
 
-          <div className="admin-users-toolbar">
-            <label className="admin-input-wrap">
-              <span>Buscar</span>
-              <input
-                type="text"
-                placeholder="Nome ou e-mail"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </label>
-
-            <label className="admin-input-wrap admin-input-wrap--select">
-              <span>Filtro</span>
-              <select
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
-              >
-                <option value="ALL">Todos</option>
-                <option value="ACTIVE">Ativos</option>
-                <option value="BLOCKED">Bloqueados</option>
-                <option value="BANNED">Banidos</option>
-                <option value="ADMIN">Admins</option>
-              </select>
-            </label>
-          </div>
+          <label className="admin-input-wrap admin-input-wrap--select">
+            <span>Filtro</span>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+            >
+              <option value="ALL">Todos</option>
+              <option value="ACTIVE">Ativos</option>
+              <option value="BLOCKED">Bloqueados</option>
+              <option value="BANNED">Banidos</option>
+              <option value="ADMIN">Admins</option>
+            </select>
+          </label>
         </div>
 
         {filteredUsers.length === 0 ? (
           <div className="admin-users-empty">
-            <strong>Nenhum usuário encontrado</strong>
-            <p>
-              Ajuste os filtros ou revise o termo de busca para localizar outra
-              conta no ambiente.
-            </p>
+            <EmptyState
+              title="Nenhum usuário encontrado"
+              description="Ajuste os filtros ou revise o termo de busca para localizar outra conta no ambiente."
+            />
           </div>
         ) : (
           <div className="admin-users-list">
@@ -609,21 +558,12 @@ export function AdminPage() {
                     </div>
 
                     <div className="admin-user-card__badges">
-                      <span
-                        className={`admin-role-badge ${
-                          user.role === "ADMIN"
-                            ? "admin-role-badge--admin"
-                            : "admin-role-badge--user"
-                        }`}
-                      >
-                        {traduzirRole(user.role)}
-                      </span>
+                      <StatusBadge
+                        label={traduzirRole(user.role)}
+                        tone={user.role === "ADMIN" ? "info" : "neutral"}
+                      />
 
-                      <span
-                        className={`admin-status-badge admin-status-badge--${status.tone}`}
-                      >
-                        {status.label}
-                      </span>
+                      <StatusBadge label={status.label} tone={status.tone} />
                     </div>
                   </div>
 
@@ -708,21 +648,16 @@ export function AdminPage() {
             })}
           </div>
         )}
-      </section>
+      </PanelCard>
 
       <section className="admin-activity-grid">
-        <article className="admin-panel-card">
-          <div className="admin-panel-card__header">
-            <div>
-              <span className="admin-eyebrow">Atividade recente</span>
-              <h2>Últimos eventos administrativos</h2>
-            </div>
-          </div>
-
+        <PanelCard eyebrow="Atividade recente" title="Últimos eventos administrativos">
           {data.activity.length === 0 ? (
             <div className="admin-users-empty">
-              <strong>Nenhuma atividade registrada</strong>
-              <p>As próximas ações do ambiente aparecerão aqui.</p>
+              <EmptyState
+                title="Nenhuma atividade registrada"
+                description="As próximas ações do ambiente aparecerão aqui."
+              />
             </div>
           ) : (
             <div className="admin-activity-list">
@@ -738,16 +673,9 @@ export function AdminPage() {
               ))}
             </div>
           )}
-        </article>
+        </PanelCard>
 
-        <article className="admin-panel-card">
-          <div className="admin-panel-card__header">
-            <div>
-              <span className="admin-eyebrow">Distribuição de status</span>
-              <h2>Chamados e tarefas</h2>
-            </div>
-          </div>
-
+        <PanelCard eyebrow="Distribuição de status" title="Chamados e tarefas">
           <div className="admin-distribution-grid">
             <div className="admin-distribution-card">
               <span>Chamados</span>
@@ -783,7 +711,7 @@ export function AdminPage() {
               </ul>
             </div>
           </div>
-        </article>
+        </PanelCard>
       </section>
     </section>
   );

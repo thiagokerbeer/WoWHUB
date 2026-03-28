@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../services/api";
 import { DashboardData } from "../types";
+import {
+  EmptyState,
+  NoticeBanner,
+  PageHero,
+  PanelCard,
+  PriorityBadge,
+  SkeletonBlock,
+  StatCard,
+  StatusBadge,
+} from "../components/ui";
 import "./DashboardPage.css";
 
 type NoticeState =
@@ -94,7 +104,7 @@ function calcularSaude(
   if (openTickets === 0 && resolvedTickets === 0 && tasksInProgress === 0) {
     return {
       label: "Painel leve",
-      tone: "neutral",
+      tone: "neutral" as const,
       text: "Ainda não há volume operacional relevante carregado no dashboard.",
     };
   }
@@ -102,7 +112,7 @@ function calcularSaude(
   if (resolvedTickets >= openTickets && tasksInProgress <= resolvedTickets) {
     return {
       label: "Operação estável",
-      tone: "success",
+      tone: "success" as const,
       text: "Os resolvidos estão sustentando bem o fluxo atual.",
     };
   }
@@ -110,16 +120,45 @@ function calcularSaude(
   if (openTickets > resolvedTickets) {
     return {
       label: "Fila pressionada",
-      tone: "warning",
+      tone: "warning" as const,
       text: "Há mais chamados abertos do que resolvidos no recorte atual.",
     };
   }
 
   return {
     label: "Ritmo ativo",
-    tone: "info",
+    tone: "info" as const,
     text: "O ambiente mostra boa movimentação de execução e atendimento.",
   };
+}
+
+function mapStatusTone(status: string) {
+  const mapa: Record<string, "success" | "warning" | "info" | "neutral"> = {
+    OPEN: "warning",
+    IN_PROGRESS: "info",
+    WAITING_RESPONSE: "neutral",
+    RESOLVED: "success",
+    CLOSED: "neutral",
+    TODO: "warning",
+    DOING: "info",
+    DONE: "success",
+  };
+
+  return mapa[status] || "neutral";
+}
+
+function mapPriorityTone(priority: string) {
+  const mapa: Record<
+    string,
+    "low" | "medium" | "high" | "critical" | "neutral"
+  > = {
+    LOW: "low",
+    MEDIUM: "medium",
+    HIGH: "high",
+    CRITICAL: "critical",
+  };
+
+  return mapa[priority] || "neutral";
 }
 
 export function DashboardPage() {
@@ -176,7 +215,7 @@ export function DashboardPage() {
     if (!data) {
       return {
         label: "Carregando",
-        tone: "neutral",
+        tone: "neutral" as const,
         text: "Preparando leitura operacional.",
       };
     }
@@ -191,15 +230,17 @@ export function DashboardPage() {
   if (loading) {
     return (
       <section className="dashboard-page dashboard-page--loading">
-        <div className="dashboard-loading-hero shimmer" />
+        <SkeletonBlock className="dashboard-loading-hero" />
+
         <div className="dashboard-loading-grid">
-          <div className="dashboard-loading-card shimmer" />
-          <div className="dashboard-loading-card shimmer" />
-          <div className="dashboard-loading-card shimmer" />
-          <div className="dashboard-loading-card shimmer" />
+          <SkeletonBlock className="dashboard-loading-card" />
+          <SkeletonBlock className="dashboard-loading-card" />
+          <SkeletonBlock className="dashboard-loading-card" />
+          <SkeletonBlock className="dashboard-loading-card" />
         </div>
-        <div className="dashboard-loading-panel shimmer" />
-        <div className="dashboard-loading-panel shimmer" />
+
+        <SkeletonBlock className="dashboard-loading-panel" />
+        <SkeletonBlock className="dashboard-loading-panel" />
       </section>
     );
   }
@@ -208,21 +249,20 @@ export function DashboardPage() {
     return (
       <section className="dashboard-empty-state">
         <div className="dashboard-empty-state__card">
-          <span className="dashboard-chip dashboard-chip--danger">
-            Dashboard indisponível
-          </span>
-          <h1>Não foi possível carregar a central de comando</h1>
-          <p>
-            O sistema não conseguiu montar a leitura operacional agora. Tente
-            novamente para restaurar o painel.
-          </p>
-          <button
-            type="button"
-            className="dashboard-primary-button"
-            onClick={() => loadDashboard()}
-          >
-            Tentar novamente
-          </button>
+          <EmptyState
+            eyebrow="Dashboard indisponível"
+            title="Não foi possível carregar a central de comando"
+            description="O sistema não conseguiu montar a leitura operacional agora. Tente novamente para restaurar o painel."
+            action={
+              <button
+                type="button"
+                className="dashboard-primary-button"
+                onClick={() => loadDashboard()}
+              >
+                Tentar novamente
+              </button>
+            }
+          />
         </div>
       </section>
     );
@@ -230,102 +270,66 @@ export function DashboardPage() {
 
   return (
     <section className="dashboard-page">
-      <header className="dashboard-hero">
-        <div className="dashboard-hero__content">
-          <span className="dashboard-eyebrow">WoWHUB Command Center</span>
-          <h1>Dashboard operacional</h1>
-          <p>
-            Uma leitura clara do ambiente para tickets, tarefas, usuários,
-            projetos e atividade recente, sem poeira de painel genérico.
-          </p>
-
-          <div className="dashboard-hero__chips">
-            <span className="dashboard-chip">Atendimento</span>
-            <span className="dashboard-chip">Execução</span>
-            <span className="dashboard-chip">Atividade recente</span>
-          </div>
-        </div>
-
-        <div className="dashboard-hero__sidecard">
-          <div className="dashboard-hero__sidecard-top">
-            <span className="dashboard-eyebrow">Saúde do ambiente</span>
-            <span
-              className={`dashboard-status-badge dashboard-status-badge--${health.tone}`}
-            >
-              {refreshing ? "Atualizando..." : health.label}
-            </span>
-          </div>
-
-          <p>{health.text}</p>
-
-          <div className="dashboard-hero__mini-grid">
-            <div className="dashboard-mini-stat">
-              <span>Usuários</span>
-              <strong>{data.metrics.usersCount}</strong>
-            </div>
-            <div className="dashboard-mini-stat">
-              <span>Projetos</span>
-              <strong>{data.metrics.projectsCount}</strong>
-            </div>
-            <div className="dashboard-mini-stat">
-              <span>Em execução</span>
-              <strong>{data.metrics.tasksInProgress}</strong>
-            </div>
-          </div>
-        </div>
-      </header>
+      <PageHero
+        eyebrow="WoWHUB Command Center"
+        title="Dashboard operacional"
+        description="Uma leitura clara do ambiente para tickets, tarefas, usuários, projetos e atividade recente, sem poeira de painel genérico."
+        chips={["Atendimento", "Execução", "Atividade recente"]}
+        sideEyebrow="Saúde do ambiente"
+        sideBadge={
+          <StatusBadge
+            label={refreshing ? "Atualizando..." : health.label}
+            tone={health.tone}
+          />
+        }
+        sideDescription={health.text}
+        miniStats={[
+          { label: "Usuários", value: data.metrics.usersCount },
+          { label: "Projetos", value: data.metrics.projectsCount },
+          { label: "Em execução", value: data.metrics.tasksInProgress },
+        ]}
+      />
 
       {notice ? (
-        <div
-          className={`dashboard-notice dashboard-notice--${notice.type}`}
-          role="status"
-          aria-live="polite"
-        >
-          <div>
-            <strong>{notice.title}</strong>
-            <p>{notice.message}</p>
-          </div>
-
-          <button type="button" onClick={() => setNotice(null)}>
-            ×
-          </button>
-        </div>
+        <NoticeBanner
+          type={notice.type}
+          title={notice.title}
+          message={notice.message}
+          onClose={() => setNotice(null)}
+        />
       ) : null}
 
       <section className="dashboard-stats-grid">
-        <article className="dashboard-stat-card">
-          <span className="dashboard-stat-card__label">Chamados abertos</span>
-          <strong>{data.metrics.openTickets}</strong>
-          <p>Volume de solicitações ainda pedindo resposta da operação.</p>
-        </article>
+        <StatCard
+          label="Chamados abertos"
+          value={data.metrics.openTickets}
+          description="Volume de solicitações ainda pedindo resposta da operação."
+        />
 
-        <article className="dashboard-stat-card">
-          <span className="dashboard-stat-card__label">Chamados resolvidos</span>
-          <strong>{data.metrics.resolvedTickets}</strong>
-          <p>Itens concluídos dentro do fluxo de suporte.</p>
-        </article>
+        <StatCard
+          label="Chamados resolvidos"
+          value={data.metrics.resolvedTickets}
+          description="Itens concluídos dentro do fluxo de suporte."
+        />
 
-        <article className="dashboard-stat-card">
-          <span className="dashboard-stat-card__label">Tarefas em andamento</span>
-          <strong>{data.metrics.tasksInProgress}</strong>
-          <p>Execução ativa concentrada na trilha operacional.</p>
-        </article>
+        <StatCard
+          label="Tarefas em andamento"
+          value={data.metrics.tasksInProgress}
+          description="Execução ativa concentrada na trilha operacional."
+        />
 
-        <article className="dashboard-stat-card">
-          <span className="dashboard-stat-card__label">Projetos ativos</span>
-          <strong>{data.metrics.projectsCount}</strong>
-          <p>Estruturas vivas sustentando o ambiente SaaS.</p>
-        </article>
+        <StatCard
+          label="Projetos ativos"
+          value={data.metrics.projectsCount}
+          description="Estruturas vivas sustentando o ambiente SaaS."
+        />
       </section>
 
       <section className="dashboard-panel-grid">
-        <article className="dashboard-panel-card">
-          <div className="dashboard-panel-card__header">
-            <div>
-              <span className="dashboard-eyebrow">Atendimento recente</span>
-              <h2>Chamados recentes</h2>
-            </div>
-
+        <PanelCard
+          eyebrow="Atendimento recente"
+          title="Chamados recentes"
+          action={
             <button
               type="button"
               className="dashboard-ghost-button"
@@ -333,12 +337,14 @@ export function DashboardPage() {
             >
               Atualizar painel
             </button>
-          </div>
-
+          }
+        >
           {data.tickets.length === 0 ? (
             <div className="dashboard-empty-block">
-              <strong>Nenhum chamado recente</strong>
-              <p>Os próximos tickets criados vão aparecer aqui.</p>
+              <EmptyState
+                title="Nenhum chamado recente"
+                description="Os próximos tickets criados vão aparecer aqui."
+              />
             </div>
           ) : (
             <div className="dashboard-ticket-list">
@@ -353,17 +359,15 @@ export function DashboardPage() {
                     </div>
 
                     <div className="dashboard-ticket-card__badges">
-                      <span
-                        className={`dashboard-priority-badge dashboard-priority-badge--${ticket.priority.toLowerCase()}`}
-                      >
-                        {traduzirPrioridade(ticket.priority)}
-                      </span>
+                      <PriorityBadge
+                        label={traduzirPrioridade(ticket.priority)}
+                        tone={mapPriorityTone(ticket.priority)}
+                      />
 
-                      <span
-                        className={`dashboard-status-badge dashboard-status-badge--${ticket.status.toLowerCase()}`}
-                      >
-                        {traduzirStatus(ticket.status)}
-                      </span>
+                      <StatusBadge
+                        label={traduzirStatus(ticket.status)}
+                        tone={mapStatusTone(ticket.status)}
+                      />
                     </div>
                   </div>
 
@@ -374,20 +378,15 @@ export function DashboardPage() {
               ))}
             </div>
           )}
-        </article>
+        </PanelCard>
 
-        <article className="dashboard-panel-card">
-          <div className="dashboard-panel-card__header">
-            <div>
-              <span className="dashboard-eyebrow">Execução recente</span>
-              <h2>Tarefas recentes</h2>
-            </div>
-          </div>
-
+        <PanelCard eyebrow="Execução recente" title="Tarefas recentes">
           {data.tasks.length === 0 ? (
             <div className="dashboard-empty-block">
-              <strong>Nenhuma tarefa recente</strong>
-              <p>As próximas tarefas criadas vão alimentar esta coluna.</p>
+              <EmptyState
+                title="Nenhuma tarefa recente"
+                description="As próximas tarefas criadas vão alimentar esta coluna."
+              />
             </div>
           ) : (
             <div className="dashboard-task-list">
@@ -402,31 +401,25 @@ export function DashboardPage() {
                       </p>
                     </div>
 
-                    <span
-                      className={`dashboard-status-badge dashboard-status-badge--${task.status.toLowerCase()}`}
-                    >
-                      {traduzirStatus(task.status)}
-                    </span>
+                    <StatusBadge
+                      label={traduzirStatus(task.status)}
+                      tone={mapStatusTone(task.status)}
+                    />
                   </div>
                 </article>
               ))}
             </div>
           )}
-        </article>
+        </PanelCard>
       </section>
 
-      <section className="dashboard-panel-card">
-        <div className="dashboard-panel-card__header">
-          <div>
-            <span className="dashboard-eyebrow">Atividade do ambiente</span>
-            <h2>Fluxo recente de atividade</h2>
-          </div>
-        </div>
-
+      <PanelCard eyebrow="Atividade do ambiente" title="Fluxo recente de atividade">
         {data.recentActivity.length === 0 ? (
           <div className="dashboard-empty-block">
-            <strong>Nenhuma atividade recente</strong>
-            <p>As próximas ações operacionais vão aparecer aqui.</p>
+            <EmptyState
+              title="Nenhuma atividade recente"
+              description="As próximas ações operacionais vão aparecer aqui."
+            />
           </div>
         ) : (
           <div className="dashboard-activity-list">
@@ -444,7 +437,7 @@ export function DashboardPage() {
             ))}
           </div>
         )}
-      </section>
+      </PanelCard>
     </section>
   );
 }
