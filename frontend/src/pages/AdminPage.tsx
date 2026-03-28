@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../services/api";
-import { AdminSnapshot, AdminUser } from "../types";
+import type { AdminSnapshot, AdminUser } from "../types";
 import "./AdminPage.css";
 
 type AccessAction =
@@ -10,10 +10,13 @@ type AccessAction =
   | "BAN_30_DAYS"
   | "CLEAR_BAN";
 
-type NoticeState = {
-  type: "success" | "error";
-  message: string;
-} | null;
+type NoticeState =
+  | {
+      type: "success" | "error";
+      title: string;
+      message: string;
+    }
+  | null;
 
 function traduzirRole(role: string) {
   return role === "ADMIN" ? "Administrador" : "Usuário";
@@ -93,7 +96,11 @@ function traduzirMensagemAcao(action: AccessAction) {
   return map[action];
 }
 
-function obterLabelBotao(action: AccessAction, isBusy: boolean, isBlocked: boolean) {
+function obterLabelBotao(
+  action: AccessAction,
+  isBusy: boolean,
+  isBlocked: boolean
+) {
   if (!isBusy) {
     switch (action) {
       case "BLOCK":
@@ -123,6 +130,28 @@ function obterLabelBotao(action: AccessAction, isBusy: boolean, isBlocked: boole
   }
 }
 
+function somarAgrupamentos(list: Array<{ _count: { status: number } }>) {
+  return list.reduce((total, item) => total + item._count.status, 0);
+}
+
+function extrairProjectsCount(snapshot: AdminSnapshot | null) {
+  if (!snapshot) {
+    return 0;
+  }
+
+  const raw = snapshot as unknown as Record<string, unknown>;
+
+  if (typeof raw.projectsCount === "number") {
+    return raw.projectsCount;
+  }
+
+  if (Array.isArray(raw.projects)) {
+    return raw.projects.length;
+  }
+
+  return 0;
+}
+
 export function AdminPage() {
   const [data, setData] = useState<AdminSnapshot | null>(null);
   const [search, setSearch] = useState("");
@@ -142,12 +171,15 @@ export function AdminPage() {
         setIsBootLoading(true);
       }
 
-      const response = await api.get("/admin/snapshot");
+      const response = await api.get<AdminSnapshot>("/admin/snapshot");
       setData(response.data);
-    } catch {
+    } catch (error) {
+      console.error(error);
       setNotice({
         type: "error",
-        message: "Não foi possível carregar o painel administrativo.",
+        title: "Falha ao carregar o painel",
+        message:
+          "Não foi possível buscar os dados administrativos agora. Tente novamente.",
       });
     } finally {
       setIsBootLoading(false);
@@ -159,82 +191,114 @@ export function AdminPage() {
     loadSnapshot();
   }, []);
 
-  const usuariosFiltrados = useMemo(() => {
-    if (!data) {
+  useEffect(() => {
+    if (!notice) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setNotice(null);
+    }, 4500);
+
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
+
+  const filteredUsers = useMemo(() => {
+    if (!data?.users) {
       return [];
     }
 
     return data.users.filter((user) => {
-      const status = descreverStatusUsuario(user);
+      const searchValue = search.trim().toLowerCase();
 
-      const bateBusca =
-        search.trim() === "" ||
-        user.name.toLowerCase().includes(search.toLowerCase()) ||
-        user.email.toLowerCase().includes(search.toLowerCase());
+      const matchesSearch =
+        searchValue.length === 0 ||
+        user.name.toLowerCase().includes(searchValue) ||
+        user.email.toLowerCase().includes(searchValue);
 
-      const bateStatus =
+      const hasActiveBan = usuarioTemBanAtivo(user.bannedUntil);
+
+      const matchesStatus =
         statusFilter === "ALL" ||
-        (statusFilter === "ACTIVE" && status.label === "Ativo") ||
-        (statusFilter === "BLOCKED" && status.label === "Bloqueado") ||
-        (statusFilter === "BANNED" && status.label === "Ban temporário");
+        (statusFilter === "ACTIVE" && !user.isBlocked && !hasActiveBan) ||
+        (statusFilter === "BLOCKED" && user.isBlocked) ||
+        (statusFilter === "BANNED" && hasActiveBan) ||
+        (statusFilter === "ADMIN" && user.role === "ADMIN");
 
-      return bateBusca && bateStatus;
+      return matchesSearch && matchesStatus;
     });
-  }, [data, search, statusFilter]);
+  }, [data?.users, search, statusFilter]);
 
-  const metricas = useMemo(() => {
-    if (!data) {
-      return {
-        ativos: 0,
-        bloqueados: 0,
-        banidos: 0,
-        admins: 0,
-      };
-    }
-
-    const ativos = data.users.filter(
+  const metrics = useMemo(() => {
+    const users = data?.users ?? [];
+    const activeUsers = users.filter(
       (user) => !user.isBlocked && !usuarioTemBanAtivo(user.bannedUntil)
     ).length;
+    const blockedUsers = users.filter((user) => user.isBlocked).length;
+    const bannedUsers = users.filter((user) =>
+      usuarioTemBanAtivo(user.bannedUntil)
+    ).length;
+    const adminUsers = users.filter((user) => user.role === "ADMIN").length;
 
-    const bloqueados = data.users.filter((user) => user.isBlocked).length;
-    const banidos = data.users.filter((user) => usuarioTemBanAtivo(user.bannedUntil)).length;
-    const admins = data.users.filter((user) => user.role === "ADMIN").length;
+    const openTickets =
+      data?.ticketsByStatus?.find((ticket) => ticket.status === "OPEN")?._count
+        .status ?? 0;
+
+    const resolvedTickets =
+      data?.ticketsByStatus?.find((ticket) => ticket.status === "RESOLVED")
+        ?._count.status ?? 0;
+
+    const todoTasks =
+      data?.tasksByStatus?.find((task) => task.status === "TODO")?._count
+        .status ?? 0;
+
+    const doneTasks =
+      data?.tasksByStatus?.find((task) => task.status === "DONE")?._count
+        .status ?? 0;
 
     return {
-      ativos,
-      bloqueados,
-      banidos,
-      admins,
+      totalUsers: users.length,
+      activeUsers,
+      blockedUsers,
+      bannedUsers,
+      adminUsers,
+      projects: extrairProjectsCount(data),
+      openTickets,
+      resolvedTickets,
+      todoTasks,
+      doneTasks,
     };
   }, [data]);
 
-  async function aplicarAcao(userId: string, action: AccessAction) {
+  async function handleAccessAction(userId: string, action: AccessAction) {
     try {
       setBusyUserId(userId);
-      setNotice(null);
 
       await api.patch(`/admin/users/${userId}/access`, { action });
-      await loadSnapshot({ silent: true });
 
       setNotice({
         type: "success",
+        title: "Ação aplicada",
         message: traduzirMensagemAcao(action),
       });
-    } catch (error: any) {
+
+      await loadSnapshot({ silent: true });
+    } catch (error) {
+      console.error(error);
       setNotice({
         type: "error",
+        title: "Não foi possível concluir a ação",
         message:
-          error?.response?.data?.message ||
-          "Não foi possível concluir a ação administrativa.",
+          "A alteração de acesso falhou. Verifique sua sessão e tente novamente.",
       });
     } finally {
       setBusyUserId(null);
     }
   }
 
-  async function excluirUsuario(userId: string) {
+  async function handleDeleteUser(user: AdminUser) {
     const confirmed = window.confirm(
-      "Tem certeza que deseja excluir este usuário? Essa ação remove a conta e os dados relacionados."
+      `Tem certeza que deseja excluir o usuário "${user.name}"? Essa ação não pode ser desfeita.`
     );
 
     if (!confirmed) {
@@ -242,21 +306,24 @@ export function AdminPage() {
     }
 
     try {
-      setBusyUserId(userId);
-      setNotice(null);
+      setBusyUserId(user.id);
 
-      await api.delete(`/admin/users/${userId}`);
-      await loadSnapshot({ silent: true });
+      await api.delete(`/admin/users/${user.id}`);
 
       setNotice({
         type: "success",
-        message: "Usuário excluído com sucesso.",
+        title: "Usuário removido",
+        message: `${user.name} foi excluído com sucesso.`,
       });
-    } catch (error: any) {
+
+      await loadSnapshot({ silent: true });
+    } catch (error) {
+      console.error(error);
       setNotice({
         type: "error",
+        title: "Falha ao excluir usuário",
         message:
-          error?.response?.data?.message || "Não foi possível excluir o usuário.",
+          "Não foi possível remover este usuário agora. Tente novamente em instantes.",
       });
     } finally {
       setBusyUserId(null);
@@ -265,153 +332,274 @@ export function AdminPage() {
 
   if (isBootLoading) {
     return (
-      <div className="admin-page">
-        <section className="admin-hero admin-hero--loading">
-          <span className="admin-overline">Alto comando</span>
-          <h1>Painel administrativo</h1>
-          <p>Carregando visão de acesso, usuários e atividade administrativa...</p>
-        </section>
-      </div>
+      <section className="admin-page admin-page--loading">
+        <div className="admin-loading-hero shimmer" />
+        <div className="admin-loading-grid">
+          <div className="admin-loading-card shimmer" />
+          <div className="admin-loading-card shimmer" />
+          <div className="admin-loading-card shimmer" />
+          <div className="admin-loading-card shimmer" />
+        </div>
+        <div className="admin-loading-panel shimmer" />
+        <div className="admin-loading-panel shimmer" />
+      </section>
     );
   }
 
   if (!data) {
     return (
-      <div className="admin-page">
-        <section className="admin-empty">
-          <span className="admin-overline">Painel indisponível</span>
-          <h2>Não foi possível carregar os dados do Admin</h2>
-          <p>Tente atualizar novamente para restaurar a visão operacional.</p>
-
-          <button className="admin-action-btn admin-action-btn--primary" onClick={() => loadSnapshot()}>
+      <section className="admin-empty-state">
+        <div className="admin-empty-state__card">
+          <span className="admin-chip admin-chip--danger">
+            Painel indisponível
+          </span>
+          <h1>Não foi possível carregar a central administrativa</h1>
+          <p>
+            O ambiente não conseguiu buscar os dados do painel. Tente novamente
+            para restaurar a leitura operacional.
+          </p>
+          <button
+            type="button"
+            className="admin-primary-button"
+            onClick={() => loadSnapshot()}
+          >
             Tentar novamente
           </button>
-        </section>
-      </div>
+        </div>
+      </section>
     );
   }
 
   return (
-    <div className="admin-page">
-      <section className="admin-hero">
+    <section className="admin-page">
+      <header className="admin-hero">
         <div className="admin-hero__content">
-          <span className="admin-overline">Alto comando</span>
-          <h1>Painel administrativo</h1>
+          <span className="admin-eyebrow">Central administrativa WoWHUB</span>
+          <h1>Controle de usuários e saúde operacional</h1>
           <p>
-            Controle central de usuários, bloqueios, banimentos temporários e visão
-            rápida da base operacional.
+            Gerencie permissões, bloqueios e banimentos com leitura rápida do
+            ambiente e resposta mais segura sobre o acesso à plataforma.
           </p>
 
           <div className="admin-hero__chips">
-            <span>Gestão de acesso</span>
-            <span>Controle de conta</span>
-            <span>Ações críticas centralizadas</span>
+            <span className="admin-chip">Gestão de acesso</span>
+            <span className="admin-chip">Monitoramento rápido</span>
+            <span className="admin-chip">Operação protegida</span>
           </div>
         </div>
 
-        <div className="admin-hero__metrics">
-          <div className="admin-metric-card">
-            <span>Ativos</span>
-            <strong>{metricas.ativos}</strong>
+        <div className="admin-hero__sidecard">
+          <div className="admin-hero__sidecard-top">
+            <span className="admin-eyebrow">Panorama atual</span>
+            {isRefreshing ? (
+              <span className="admin-status-badge admin-status-badge--info">
+                Atualizando...
+              </span>
+            ) : (
+              <span className="admin-status-badge admin-status-badge--success">
+                Sincronizado
+              </span>
+            )}
           </div>
 
-          <div className="admin-metric-card">
-            <span>Bloqueados</span>
-            <strong>{metricas.bloqueados}</strong>
-          </div>
+          <p>
+            Usuários ativos, fluxo administrativo e disciplina operacional
+            concentrados em um único painel.
+          </p>
 
-          <div className="admin-metric-card">
-            <span>Banidos</span>
-            <strong>{metricas.banidos}</strong>
-          </div>
-
-          <div className="admin-metric-card">
-            <span>Admins</span>
-            <strong>{metricas.admins}</strong>
+          <div className="admin-hero__mini-grid">
+            <div className="admin-mini-stat">
+              <span>Total de usuários</span>
+              <strong>{metrics.totalUsers}</strong>
+            </div>
+            <div className="admin-mini-stat">
+              <span>Admins</span>
+              <strong>{metrics.adminUsers}</strong>
+            </div>
+            <div className="admin-mini-stat">
+              <span>Projetos</span>
+              <strong>{metrics.projects}</strong>
+            </div>
           </div>
         </div>
-      </section>
+      </header>
 
-      {notice && (
-        <div className={`admin-notice admin-notice--${notice.type}`}>
+      {notice ? (
+        <div
+          className={`admin-notice admin-notice--${notice.type}`}
+          role="status"
+          aria-live="polite"
+        >
           <div>
-            <strong>{notice.type === "success" ? "Ação concluída" : "Atenção"}</strong>
+            <strong>{notice.title}</strong>
             <p>{notice.message}</p>
           </div>
 
-          <button onClick={() => setNotice(null)}>Fechar</button>
+          <button type="button" onClick={() => setNotice(null)}>
+            ×
+          </button>
         </div>
-      )}
+      ) : null}
 
-      <section className="admin-panel">
-        <div className="admin-panel__header">
+      <section className="admin-stats-grid">
+        <article className="admin-stat-card">
+          <span className="admin-stat-card__label">Usuários ativos</span>
+          <strong>{metrics.activeUsers}</strong>
+          <p>Acesso normal e sem banimento temporário ativo.</p>
+        </article>
+
+        <article className="admin-stat-card">
+          <span className="admin-stat-card__label">Bloqueados</span>
+          <strong>{metrics.blockedUsers}</strong>
+          <p>Contas com bloqueio manual no ambiente.</p>
+        </article>
+
+        <article className="admin-stat-card">
+          <span className="admin-stat-card__label">Banimentos ativos</span>
+          <strong>{metrics.bannedUsers}</strong>
+          <p>Usuários com restrição temporária em vigor.</p>
+        </article>
+
+        <article className="admin-stat-card">
+          <span className="admin-stat-card__label">Projetos ativos</span>
+          <strong>{metrics.projects}</strong>
+          <p>Estruturas vivas dentro do ambiente SaaS.</p>
+        </article>
+      </section>
+
+      <section className="admin-summary-grid">
+        <article className="admin-panel-card">
+          <div className="admin-panel-card__header">
+            <div>
+              <span className="admin-eyebrow">Leitura operacional</span>
+              <h2>Visão executiva do ambiente</h2>
+            </div>
+            <button
+              type="button"
+              className="admin-ghost-button"
+              onClick={() => loadSnapshot({ silent: true })}
+            >
+              Atualizar painel
+            </button>
+          </div>
+
+          <div className="admin-summary-metrics">
+            <div className="admin-summary-metric">
+              <span>Chamados monitorados</span>
+              <strong>{somarAgrupamentos(data.ticketsByStatus ?? [])}</strong>
+            </div>
+            <div className="admin-summary-metric">
+              <span>Chamados abertos</span>
+              <strong>{metrics.openTickets}</strong>
+            </div>
+            <div className="admin-summary-metric">
+              <span>Chamados resolvidos</span>
+              <strong>{metrics.resolvedTickets}</strong>
+            </div>
+            <div className="admin-summary-metric">
+              <span>Tarefas pendentes</span>
+              <strong>{metrics.todoTasks}</strong>
+            </div>
+            <div className="admin-summary-metric">
+              <span>Tarefas concluídas</span>
+              <strong>{metrics.doneTasks}</strong>
+            </div>
+          </div>
+        </article>
+
+        <article className="admin-panel-card">
+          <div className="admin-panel-card__header">
+            <div>
+              <span className="admin-eyebrow">Risco e estabilidade</span>
+              <h2>Status do acesso</h2>
+            </div>
+          </div>
+
+          <div className="admin-health-list">
+            <div className="admin-health-item">
+              <span className="admin-health-item__title">Cobertura ativa</span>
+              <strong>{metrics.activeUsers} usuários</strong>
+              <p>Base disponível para operar normalmente no ambiente.</p>
+            </div>
+
+            <div className="admin-health-item">
+              <span className="admin-health-item__title">
+                Intervenção manual
+              </span>
+              <strong>{metrics.blockedUsers + metrics.bannedUsers} contas</strong>
+              <p>Volume atual de contas com restrição aplicada.</p>
+            </div>
+
+            <div className="admin-health-item">
+              <span className="admin-health-item__title">
+                Escopo administrativo
+              </span>
+              <strong>{metrics.adminUsers} administradores</strong>
+              <p>Perfis com controle avançado sobre o sistema.</p>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section className="admin-panel-card">
+        <div className="admin-panel-card__header admin-panel-card__header--stacked">
           <div>
-            <span className="admin-overline">Controle de usuários</span>
-            <h2>Gestão total de acesso</h2>
-            <p>
-              Visualize status, filtre a base e execute ações administrativas com
-              retorno imediato.
+            <span className="admin-eyebrow">Gestão de usuários</span>
+            <h2>Controle de acesso da plataforma</h2>
+            <p className="admin-panel-card__subtitle">
+              Filtre perfis, localize contas e aplique ações administrativas com
+              feedback imediato.
             </p>
           </div>
 
-          <div className="admin-panel__header-actions">
-            <span className="admin-count-pill">
-              {usuariosFiltrados.length} {usuariosFiltrados.length === 1 ? "usuário" : "usuários"}
-            </span>
+          <div className="admin-users-toolbar">
+            <label className="admin-input-wrap">
+              <span>Buscar</span>
+              <input
+                type="text"
+                placeholder="Nome ou e-mail"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
 
-            <button
-              className="admin-action-btn admin-action-btn--ghost"
-              onClick={() => loadSnapshot({ silent: true })}
-              disabled={isRefreshing}
-            >
-              {isRefreshing ? "Atualizando..." : "Atualizar painel"}
-            </button>
+            <label className="admin-input-wrap admin-input-wrap--select">
+              <span>Filtro</span>
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+              >
+                <option value="ALL">Todos</option>
+                <option value="ACTIVE">Ativos</option>
+                <option value="BLOCKED">Bloqueados</option>
+                <option value="BANNED">Banidos</option>
+                <option value="ADMIN">Admins</option>
+              </select>
+            </label>
           </div>
         </div>
 
-        <div className="admin-filters">
-          <div className="admin-field">
-            <label htmlFor="admin-search">Buscar</label>
-            <input
-              id="admin-search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Nome ou e-mail"
-            />
-          </div>
-
-          <div className="admin-field admin-field--compact">
-            <label htmlFor="admin-status">Status</label>
-            <select
-              id="admin-status"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="ALL">Todos</option>
-              <option value="ACTIVE">Ativos</option>
-              <option value="BLOCKED">Bloqueados</option>
-              <option value="BANNED">Banidos</option>
-            </select>
-          </div>
-        </div>
-
-        {usuariosFiltrados.length === 0 ? (
-          <div className="admin-empty-state">
-            <h3>Nenhum usuário encontrado</h3>
-            <p>Refine os filtros ou limpe a busca para visualizar toda a base.</p>
+        {filteredUsers.length === 0 ? (
+          <div className="admin-users-empty">
+            <strong>Nenhum usuário encontrado</strong>
+            <p>
+              Ajuste os filtros ou revise o termo de busca para localizar outra
+              conta no ambiente.
+            </p>
           </div>
         ) : (
-          <div className="admin-users-grid">
-            {usuariosFiltrados.map((user) => {
+          <div className="admin-users-list">
+            {filteredUsers.map((user) => {
               const status = descreverStatusUsuario(user);
               const isBusy = busyUserId === user.id;
+              const hasActiveBan = usuarioTemBanAtivo(user.bannedUntil);
 
               return (
-                <article className="admin-user-card" key={user.id}>
+                <article key={user.id} className="admin-user-card">
                   <div className="admin-user-card__top">
                     <div className="admin-user-card__identity">
-                      <div className="admin-avatar">
-                        {user.avatar || user.name.slice(0, 2).toUpperCase()}
+                      <div className="admin-user-card__avatar">
+                        {user.name.slice(0, 1).toUpperCase()}
                       </div>
 
                       <div>
@@ -421,74 +609,96 @@ export function AdminPage() {
                     </div>
 
                     <div className="admin-user-card__badges">
-                      <span className={`admin-badge admin-badge--${status.tone}`}>
-                        {status.label}
-                      </span>
-                      <span className="admin-badge admin-badge--neutral">
+                      <span
+                        className={`admin-role-badge ${
+                          user.role === "ADMIN"
+                            ? "admin-role-badge--admin"
+                            : "admin-role-badge--user"
+                        }`}
+                      >
                         {traduzirRole(user.role)}
+                      </span>
+
+                      <span
+                        className={`admin-status-badge admin-status-badge--${status.tone}`}
+                      >
+                        {status.label}
                       </span>
                     </div>
                   </div>
 
-                  <div className="admin-user-card__details">
-                    <div className="admin-detail-box">
+                  <div className="admin-user-card__meta">
+                    <div>
+                      <span>Status detalhado</span>
+                      <strong>{status.extra}</strong>
+                    </div>
+
+                    <div>
                       <span>Criado em</span>
                       <strong>{formatarData(user.createdAt)}</strong>
                     </div>
 
-                    <div className="admin-detail-box">
-                      <span>Detalhe</span>
-                      <strong>{status.extra}</strong>
+                    <div>
+                      <span>Banimento</span>
+                      <strong>
+                        {hasActiveBan
+                          ? formatarData(user.bannedUntil)
+                          : "Sem banimento ativo"}
+                      </strong>
                     </div>
                   </div>
 
                   <div className="admin-user-card__actions">
-                    {!user.isBlocked ? (
-                      <button
-                        className="admin-action-btn admin-action-btn--danger-soft"
-                        onClick={() => aplicarAcao(user.id, "BLOCK")}
-                        disabled={isBusy}
-                      >
-                        {obterLabelBotao("BLOCK", isBusy, user.isBlocked)}
-                      </button>
-                    ) : (
-                      <button
-                        className="admin-action-btn admin-action-btn--success-soft"
-                        onClick={() => aplicarAcao(user.id, "UNBLOCK")}
-                        disabled={isBusy}
-                      >
-                        {obterLabelBotao("UNBLOCK", isBusy, user.isBlocked)}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className="admin-action-button admin-action-button--danger"
+                      disabled={isBusy || user.isBlocked}
+                      onClick={() => handleAccessAction(user.id, "BLOCK")}
+                    >
+                      {obterLabelBotao("BLOCK", isBusy, user.isBlocked)}
+                    </button>
 
                     <button
-                      className="admin-action-btn admin-action-btn--secondary"
-                      onClick={() => aplicarAcao(user.id, "BAN_5_DAYS")}
+                      type="button"
+                      className="admin-action-button"
+                      disabled={isBusy || !user.isBlocked}
+                      onClick={() => handleAccessAction(user.id, "UNBLOCK")}
+                    >
+                      {obterLabelBotao("UNBLOCK", isBusy, user.isBlocked)}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="admin-action-button admin-action-button--warning"
                       disabled={isBusy}
+                      onClick={() => handleAccessAction(user.id, "BAN_5_DAYS")}
                     >
                       {obterLabelBotao("BAN_5_DAYS", isBusy, user.isBlocked)}
                     </button>
 
                     <button
-                      className="admin-action-btn admin-action-btn--secondary"
-                      onClick={() => aplicarAcao(user.id, "BAN_30_DAYS")}
+                      type="button"
+                      className="admin-action-button admin-action-button--warning"
                       disabled={isBusy}
+                      onClick={() => handleAccessAction(user.id, "BAN_30_DAYS")}
                     >
                       {obterLabelBotao("BAN_30_DAYS", isBusy, user.isBlocked)}
                     </button>
 
                     <button
-                      className="admin-action-btn admin-action-btn--ghost"
-                      onClick={() => aplicarAcao(user.id, "CLEAR_BAN")}
-                      disabled={isBusy}
+                      type="button"
+                      className="admin-action-button"
+                      disabled={isBusy || !hasActiveBan}
+                      onClick={() => handleAccessAction(user.id, "CLEAR_BAN")}
                     >
                       {obterLabelBotao("CLEAR_BAN", isBusy, user.isBlocked)}
                     </button>
 
                     <button
-                      className="admin-action-btn admin-action-btn--danger"
-                      onClick={() => excluirUsuario(user.id)}
+                      type="button"
+                      className="admin-action-button admin-action-button--danger-soft"
                       disabled={isBusy}
+                      onClick={() => handleDeleteUser(user)}
                     >
                       {isBusy ? "Processando..." : "Excluir"}
                     </button>
@@ -500,61 +710,81 @@ export function AdminPage() {
         )}
       </section>
 
-      <section className="admin-bottom-grid">
-        <div className="admin-summary-card">
-          <span className="admin-overline">Resumo estrutural</span>
-          <h2>Visão geral do módulo</h2>
-
-          <div className="admin-summary-grid">
+      <section className="admin-activity-grid">
+        <article className="admin-panel-card">
+          <div className="admin-panel-card__header">
             <div>
-              <span>Usuários</span>
-              <strong>{data.users.length}</strong>
-            </div>
-
-            <div>
-              <span>Projetos</span>
-              <strong>{data.projects.length}</strong>
-            </div>
-
-            <div>
-              <span>Grupos de chamados</span>
-              <strong>{data.ticketsByStatus.length}</strong>
-            </div>
-
-            <div>
-              <span>Grupos de tarefas</span>
-              <strong>{data.tasksByStatus.length}</strong>
+              <span className="admin-eyebrow">Atividade recente</span>
+              <h2>Últimos eventos administrativos</h2>
             </div>
           </div>
-        </div>
 
-        <div className="admin-activity-card">
-          <span className="admin-overline">Atividade administrativa</span>
-          <h2>Últimos eventos do painel</h2>
-
-          <div className="admin-activity-list">
-            {data.activity.length === 0 ? (
-              <div className="admin-activity-empty">
-                Nenhuma atividade administrativa recente.
-              </div>
-            ) : (
-              data.activity.map((item) => (
-                <article className="admin-activity-item" key={item.id}>
-                  <div className="admin-activity-item__dot" />
-
+          {data.activity.length === 0 ? (
+            <div className="admin-users-empty">
+              <strong>Nenhuma atividade registrada</strong>
+              <p>As próximas ações do ambiente aparecerão aqui.</p>
+            </div>
+          ) : (
+            <div className="admin-activity-list">
+              {data.activity.slice(0, 8).map((log) => (
+                <div key={log.id} className="admin-activity-item">
+                  <div className="admin-activity-item__line" />
                   <div className="admin-activity-item__content">
-                    <strong>{traduzirAcao(item.action)}</strong>
-                    <p>{item.details}</p>
-                    <span>
-                      {item.user.name} • {formatarData(item.createdAt)}
-                    </span>
+                    <strong>{traduzirAcao(log.action)}</strong>
+                    <p>{log.details}</p>
+                    <span>{formatarData(log.createdAt)}</span>
                   </div>
-                </article>
-              ))
-            )}
+                </div>
+              ))}
+            </div>
+          )}
+        </article>
+
+        <article className="admin-panel-card">
+          <div className="admin-panel-card__header">
+            <div>
+              <span className="admin-eyebrow">Distribuição de status</span>
+              <h2>Chamados e tarefas</h2>
+            </div>
           </div>
-        </div>
+
+          <div className="admin-distribution-grid">
+            <div className="admin-distribution-card">
+              <span>Chamados</span>
+
+              <ul>
+                {data.ticketsByStatus.length === 0 ? (
+                  <li>Sem registros</li>
+                ) : (
+                  data.ticketsByStatus.map((item) => (
+                    <li key={item.status}>
+                      <strong>{item.status}</strong>
+                      <span>{item._count.status}</span>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
+
+            <div className="admin-distribution-card">
+              <span>Tarefas</span>
+
+              <ul>
+                {data.tasksByStatus.length === 0 ? (
+                  <li>Sem registros</li>
+                ) : (
+                  data.tasksByStatus.map((item) => (
+                    <li key={item.status}>
+                      <strong>{item.status}</strong>
+                      <span>{item._count.status}</span>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
+          </div>
+        </article>
       </section>
-    </div>
+    </section>
   );
 }
