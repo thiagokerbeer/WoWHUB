@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Button, StatusBadge } from "../components/ui";
+import { Button, StatusBadge } from "./ui";
 import { InteractiveBackground } from "./InteractiveBackground";
 import "./Layout.css";
 
@@ -15,7 +15,7 @@ const navigationItems: NavigationItem[] = [
   {
     to: "/app",
     label: "Dashboard",
-    shortLabel: "Dashboard",
+    shortLabel: "Painel",
   },
   {
     to: "/app/tickets",
@@ -30,7 +30,7 @@ const navigationItems: NavigationItem[] = [
   {
     to: "/app/admin",
     label: "Admin",
-    shortLabel: "Admin",
+    shortLabel: "Controle",
     requiresAdmin: true,
   },
 ];
