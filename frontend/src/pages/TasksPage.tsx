@@ -3,13 +3,19 @@ import { api } from "../services/api";
 import type { AdminSnapshot, AdminUser, Task } from "../types";
 import { useAuth } from "../context/AuthContext";
 import {
+  Button,
   EmptyState,
+  Field,
+  FormRow,
+  Input,
   NoticeBanner,
   PageHero,
   PanelCard,
+  Select,
   SkeletonBlock,
   StatCard,
   StatusBadge,
+  Textarea,
 } from "../components/ui";
 import "./TasksPage.css";
 
@@ -405,9 +411,8 @@ export function TasksPage() {
             subtitle="Registre a atividade com contexto claro para orientar quem vai executar."
           >
             <form className="tasks-form" onSubmit={handleCreate}>
-              <label className="tasks-input-wrap">
-                <span>Título</span>
-                <input
+              <Field label="Título">
+                <Input
                   value={form.title}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -418,11 +423,10 @@ export function TasksPage() {
                   placeholder="Ex.: Ajustar onboarding do cliente"
                   required
                 />
-              </label>
+              </Field>
 
-              <label className="tasks-input-wrap">
-                <span>Descrição</span>
-                <textarea
+              <Field label="Descrição">
+                <Textarea
                   value={form.description}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -434,12 +438,11 @@ export function TasksPage() {
                   rows={5}
                   required
                 />
-              </label>
+              </Field>
 
-              <div className="tasks-form__split">
-                <label className="tasks-input-wrap">
-                  <span>Projeto</span>
-                  <select
+              <FormRow>
+                <Field label="Projeto">
+                  <Select
                     value={form.projectId}
                     onChange={(event) =>
                       setForm((current) => ({
@@ -455,12 +458,11 @@ export function TasksPage() {
                         {project.name}
                       </option>
                     ))}
-                  </select>
-                </label>
+                  </Select>
+                </Field>
 
-                <label className="tasks-input-wrap">
-                  <span>Status inicial</span>
-                  <select
+                <Field label="Status inicial">
+                  <Select
                     value={form.status}
                     onChange={(event) =>
                       setForm((current) => ({
@@ -472,13 +474,12 @@ export function TasksPage() {
                     <option value="TODO">A fazer</option>
                     <option value="DOING">Em execução</option>
                     <option value="DONE">Concluída</option>
-                  </select>
-                </label>
-              </div>
+                  </Select>
+                </Field>
+              </FormRow>
 
-              <label className="tasks-input-wrap">
-                <span>Responsável</span>
-                <select
+              <Field label="Responsável">
+                <Select
                   value={form.assigneeId}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -493,16 +494,12 @@ export function TasksPage() {
                       {adminUser.name} · {adminUser.email}
                     </option>
                   ))}
-                </select>
-              </label>
+                </Select>
+              </Field>
 
-              <button
-                type="submit"
-                className="tasks-primary-button"
-                disabled={creating}
-              >
+              <Button type="submit" disabled={creating} fullWidth>
                 {creating ? "Criando tarefa..." : "Criar tarefa"}
-              </button>
+              </Button>
             </form>
           </PanelCard>
         ) : null}
@@ -515,18 +512,16 @@ export function TasksPage() {
             stacked
           >
             <div className="tasks-toolbar">
-              <label className="tasks-input-wrap">
-                <span>Buscar</span>
-                <input
+              <Field label="Buscar">
+                <Input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Título, projeto, responsável ou descrição"
                 />
-              </label>
+              </Field>
 
-              <label className="tasks-input-wrap tasks-input-wrap--compact">
-                <span>Status</span>
-                <select
+              <Field label="Status">
+                <Select
                   value={statusFilter}
                   onChange={(event) => setStatusFilter(event.target.value)}
                 >
@@ -534,16 +529,15 @@ export function TasksPage() {
                   <option value="TODO">A fazer</option>
                   <option value="DOING">Em execução</option>
                   <option value="DONE">Concluída</option>
-                </select>
-              </label>
+                </Select>
+              </Field>
 
-              <button
-                type="button"
-                className="tasks-ghost-button"
+              <Button
+                variant="ghost"
                 onClick={() => loadTasks({ silent: true })}
               >
                 Atualizar
-              </button>
+              </Button>
             </div>
 
             <div className="tasks-toolbar__meta">
@@ -617,32 +611,31 @@ export function TasksPage() {
                     </div>
 
                     <div className="task-card__actions">
-                      <button
-                        type="button"
-                        className="tasks-action-button"
+                      <Button
+                        variant="ghost"
                         disabled={isBusy}
                         onClick={() => changeStatus(task.id, "TODO")}
                       >
                         {isBusy ? "Movendo..." : "A fazer"}
-                      </button>
+                      </Button>
 
-                      <button
-                        type="button"
-                        className="tasks-action-button tasks-action-button--info"
+                      <Button
+                        variant="ghost"
+                        className="tasks-action-button--info"
                         disabled={isBusy}
                         onClick={() => changeStatus(task.id, "DOING")}
                       >
                         {isBusy ? "Movendo..." : "Em execução"}
-                      </button>
+                      </Button>
 
-                      <button
-                        type="button"
-                        className="tasks-action-button tasks-action-button--success"
+                      <Button
+                        variant="ghost"
+                        className="tasks-action-button--success"
                         disabled={isBusy}
                         onClick={() => changeStatus(task.id, "DONE")}
                       >
                         {isBusy ? "Movendo..." : "Concluir"}
-                      </button>
+                      </Button>
                     </div>
                   </article>
                 );

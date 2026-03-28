@@ -372,3 +372,123 @@
     border-radius: 22px;
   }
 }
+.wowui-button {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    opacity 0.18s ease;
+  min-height: 46px;
+  padding: 0 16px;
+  border-radius: 14px;
+  font-weight: 700;
+  font: inherit;
+}
+
+.wowui-button:hover {
+  transform: translateY(-1px);
+}
+
+.wowui-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.wowui-button--full {
+  width: 100%;
+}
+
+.wowui-button--primary {
+  background: linear-gradient(135deg, rgba(108, 92, 255, 0.95), rgba(60, 180, 255, 0.88));
+  color: #ffffff;
+}
+
+.wowui-button--ghost {
+  border: 1px solid rgba(153, 159, 255, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+  color: #eef2ff;
+}
+
+.wowui-button--danger {
+  background: rgba(248, 113, 113, 0.11);
+  border: 1px solid rgba(248, 113, 113, 0.16);
+  color: #fecaca;
+}
+
+.wowui-button--warning {
+  background: rgba(250, 204, 21, 0.1);
+  border: 1px solid rgba(250, 204, 21, 0.16);
+  color: #fde68a;
+}
+
+.wowui-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wowui-field__label {
+  font-size: 0.82rem;
+  color: rgba(199, 206, 255, 0.68);
+  font-weight: 600;
+}
+
+.wowui-field__hint {
+  color: rgba(193, 200, 255, 0.56);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.wowui-input,
+.wowui-textarea,
+.wowui-select {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(153, 159, 255, 0.14);
+  background: rgba(255, 255, 255, 0.035);
+  color: #f8faff;
+  padding: 12px 14px;
+  outline: none;
+  font: inherit;
+}
+
+.wowui-textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.wowui-input::placeholder,
+.wowui-textarea::placeholder {
+  color: rgba(196, 201, 255, 0.42);
+}
+
+.wowui-input:focus,
+.wowui-textarea:focus,
+.wowui-select:focus {
+  border-color: rgba(122, 138, 255, 0.4);
+  box-shadow: 0 0 0 4px rgba(105, 115, 255, 0.08);
+}
+
+.wowui-form-row {
+  display: grid;
+  gap: 12px;
+}
+
+.wowui-form-row--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.wowui-form-row--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 760px) {
+  .wowui-form-row--2,
+  .wowui-form-row--3 {
+    grid-template-columns: 1fr;
+  }
+}

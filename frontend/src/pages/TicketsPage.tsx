@@ -3,14 +3,20 @@ import { api } from "../services/api";
 import { Ticket } from "../types";
 import { useAuth } from "../context/AuthContext";
 import {
+  Button,
   EmptyState,
+  Field,
+  FormRow,
+  Input,
   NoticeBanner,
   PageHero,
   PanelCard,
   PriorityBadge,
+  Select,
   SkeletonBlock,
   StatCard,
   StatusBadge,
+  Textarea,
 } from "../components/ui";
 import "./TicketsPage.css";
 
@@ -483,9 +489,8 @@ export function TicketsPage() {
           subtitle="Registre o problema com clareza para acelerar a resposta da operação."
         >
           <form className="tickets-form" onSubmit={handleCreateTicket}>
-            <label className="tickets-input-wrap">
-              <span>Título</span>
-              <input
+            <Field label="Título">
+              <Input
                 value={form.title}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -496,11 +501,10 @@ export function TicketsPage() {
                 placeholder="Ex.: Internet lenta no setor comercial"
                 required
               />
-            </label>
+            </Field>
 
-            <label className="tickets-input-wrap">
-              <span>Descrição</span>
-              <textarea
+            <Field label="Descrição">
+              <Textarea
                 value={form.description}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -512,12 +516,11 @@ export function TicketsPage() {
                 placeholder="Explique o problema com o máximo de contexto útil"
                 required
               />
-            </label>
+            </Field>
 
-            <div className="tickets-form__split">
-              <label className="tickets-input-wrap">
-                <span>Categoria</span>
-                <select
+            <FormRow>
+              <Field label="Categoria">
+                <Select
                   value={form.category}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -531,12 +534,11 @@ export function TicketsPage() {
                       {categoria}
                     </option>
                   ))}
-                </select>
-              </label>
+                </Select>
+              </Field>
 
-              <label className="tickets-input-wrap">
-                <span>Prioridade</span>
-                <select
+              <Field label="Prioridade">
+                <Select
                   value={form.priority}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -549,17 +551,13 @@ export function TicketsPage() {
                   <option value="MEDIUM">Média</option>
                   <option value="HIGH">Alta</option>
                   <option value="CRITICAL">Crítica</option>
-                </select>
-              </label>
-            </div>
+                </Select>
+              </Field>
+            </FormRow>
 
-            <button
-              type="submit"
-              className="tickets-primary-button"
-              disabled={creating}
-            >
+            <Button type="submit" disabled={creating} fullWidth>
               {creating ? "Abrindo chamado..." : "Abrir chamado"}
-            </button>
+            </Button>
           </form>
         </PanelCard>
 
@@ -571,18 +569,16 @@ export function TicketsPage() {
             stacked
           >
             <div className="tickets-toolbar">
-              <label className="tickets-input-wrap">
-                <span>Buscar</span>
-                <input
+              <Field label="Buscar">
+                <Input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Título, descrição, solicitante ou categoria"
                 />
-              </label>
+              </Field>
 
-              <label className="tickets-input-wrap tickets-input-wrap--compact">
-                <span>Status</span>
-                <select
+              <Field label="Status">
+                <Select
                   value={statusFilter}
                   onChange={(event) =>
                     setStatusFilter(event.target.value as "ALL" | TicketStatus)
@@ -591,17 +587,14 @@ export function TicketsPage() {
                   <option value="ALL">Todos</option>
                   <option value="OPEN">Aberto</option>
                   <option value="IN_PROGRESS">Em andamento</option>
-                  <option value="WAITING_RESPONSE">
-                    Aguardando resposta
-                  </option>
+                  <option value="WAITING_RESPONSE">Aguardando resposta</option>
                   <option value="RESOLVED">Resolvido</option>
                   <option value="CLOSED">Fechado</option>
-                </select>
-              </label>
+                </Select>
+              </Field>
 
-              <label className="tickets-input-wrap tickets-input-wrap--compact">
-                <span>Prioridade</span>
-                <select
+              <Field label="Prioridade">
+                <Select
                   value={priorityFilter}
                   onChange={(event) =>
                     setPriorityFilter(
@@ -614,16 +607,16 @@ export function TicketsPage() {
                   <option value="MEDIUM">Média</option>
                   <option value="HIGH">Alta</option>
                   <option value="CRITICAL">Crítica</option>
-                </select>
-              </label>
+                </Select>
+              </Field>
 
-              <button
+              <Button
                 type="button"
-                className="tickets-ghost-button"
+                variant="ghost"
                 onClick={() => loadTickets({ silent: true })}
               >
                 Atualizar
-              </button>
+              </Button>
             </div>
 
             <div className="tickets-toolbar__meta">
@@ -709,17 +702,19 @@ export function TicketsPage() {
                     <div className="ticket-card__actions">
                       {user?.role === "ADMIN" ? (
                         <>
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
                             className="tickets-action-button"
                             disabled={isBusy}
                             onClick={() => handleStatusChange(ticket.id, "OPEN")}
                           >
                             {isBusy ? "Movendo..." : "Aberto"}
-                          </button>
+                          </Button>
 
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
                             className="tickets-action-button tickets-action-button--info"
                             disabled={isBusy}
                             onClick={() =>
@@ -727,10 +722,11 @@ export function TicketsPage() {
                             }
                           >
                             {isBusy ? "Movendo..." : "Em andamento"}
-                          </button>
+                          </Button>
 
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
                             className="tickets-action-button"
                             disabled={isBusy}
                             onClick={() =>
@@ -738,10 +734,11 @@ export function TicketsPage() {
                             }
                           >
                             {isBusy ? "Movendo..." : "Aguardar resposta"}
-                          </button>
+                          </Button>
 
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
                             className="tickets-action-button tickets-action-button--success"
                             disabled={isBusy}
                             onClick={() =>
@@ -749,37 +746,38 @@ export function TicketsPage() {
                             }
                           >
                             {isBusy ? "Movendo..." : "Resolver"}
-                          </button>
+                          </Button>
 
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
                             className="tickets-action-button tickets-action-button--ghost"
                             disabled={isBusy}
-                            onClick={() =>
-                              handleStatusChange(ticket.id, "CLOSED")
-                            }
+                            onClick={() => handleStatusChange(ticket.id, "CLOSED")}
                           >
                             {isBusy ? "Movendo..." : "Fechar"}
-                          </button>
+                          </Button>
                         </>
                       ) : (
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
                           className="tickets-action-button tickets-action-button--ghost"
                           disabled={isBusy}
                           onClick={() => handleStatusChange(ticket.id, "CLOSED")}
                         >
                           {isBusy ? "Fechando..." : "Fechar meu chamado"}
-                        </button>
+                        </Button>
                       )}
 
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
                         className="tickets-action-button tickets-action-button--ghost"
                         onClick={() => toggleExpanded(ticket.id)}
                       >
                         {isExpanded ? "Ocultar detalhes" : "Ver detalhes"}
-                      </button>
+                      </Button>
                     </div>
 
                     {isExpanded ? (
@@ -818,9 +816,8 @@ export function TicketsPage() {
                         </div>
 
                         <div className="ticket-comment-form">
-                          <label className="tickets-input-wrap">
-                            <span>Novo comentário</span>
-                            <textarea
+                          <Field label="Novo comentário">
+                            <Textarea
                               rows={4}
                               value={commentDrafts[ticket.id] || ""}
                               onChange={(event) =>
@@ -831,18 +828,17 @@ export function TicketsPage() {
                               }
                               placeholder="Adicione atualização, diagnóstico ou orientação"
                             />
-                          </label>
+                          </Field>
 
-                          <button
+                          <Button
                             type="button"
-                            className="tickets-primary-button"
                             disabled={isCommenting}
                             onClick={() => handleCommentSubmit(ticket.id)}
                           >
                             {isCommenting
                               ? "Enviando comentário..."
                               : "Adicionar comentário"}
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     ) : null}
