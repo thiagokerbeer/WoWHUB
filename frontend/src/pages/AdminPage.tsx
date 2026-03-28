@@ -2,10 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../services/api";
 import type { AdminSnapshot, AdminUser } from "../types";
 import {
+  Button,
   EmptyState,
+  Field,
+  Input,
   NoticeBanner,
   PageHero,
   PanelCard,
+  Select,
   SkeletonBlock,
   StatCard,
   StatusBadge,
@@ -19,6 +23,8 @@ type AccessAction =
   | "BAN_30_DAYS"
   | "CLEAR_BAN";
 
+type UserStatusFilter = "ALL" | "ACTIVE" | "BLOCKED" | "BANNED" | "ADMIN";
+
 type NoticeState =
   | {
       type: "success" | "error";
@@ -29,6 +35,28 @@ type NoticeState =
 
 function traduzirRole(role: string) {
   return role === "ADMIN" ? "Administrador" : "Usuário";
+}
+
+function traduzirStatusTicket(status: string) {
+  const map: Record<string, string> = {
+    OPEN: "Aberto",
+    IN_PROGRESS: "Em andamento",
+    WAITING_RESPONSE: "Aguardando resposta",
+    RESOLVED: "Resolvido",
+    CLOSED: "Fechado",
+  };
+
+  return map[status] || status;
+}
+
+function traduzirStatusTarefa(status: string) {
+  const map: Record<string, string> = {
+    TODO: "A fazer",
+    DOING: "Em execução",
+    DONE: "Concluída",
+  };
+
+  return map[status] || status;
 }
 
 function formatarData(dateString?: string | null) {
@@ -164,7 +192,8 @@ function extrairProjectsCount(snapshot: AdminSnapshot | null) {
 export function AdminPage() {
   const [data, setData] = useState<AdminSnapshot | null>(null);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] =
+    useState<UserStatusFilter>("ALL");
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
   const [notice, setNotice] = useState<NoticeState>(null);
   const [isBootLoading, setIsBootLoading] = useState(true);
@@ -364,13 +393,9 @@ export function AdminPage() {
             title="Não foi possível carregar a central administrativa"
             description="O ambiente não conseguiu buscar os dados do painel. Tente novamente para restaurar a leitura operacional."
             action={
-              <button
-                type="button"
-                className="admin-primary-button"
-                onClick={() => loadSnapshot()}
-              >
+              <Button type="button" onClick={() => loadSnapshot()}>
                 Tentar novamente
-              </button>
+              </Button>
             }
           />
         </div>
@@ -437,13 +462,14 @@ export function AdminPage() {
           eyebrow="Leitura operacional"
           title="Visão executiva do ambiente"
           action={
-            <button
+            <Button
               type="button"
+              variant="ghost"
               className="admin-ghost-button"
               onClick={() => loadSnapshot({ silent: true })}
             >
               Atualizar painel
-            </button>
+            </Button>
           }
         >
           <div className="admin-summary-metrics">
@@ -504,29 +530,29 @@ export function AdminPage() {
         stacked
       >
         <div className="admin-users-toolbar">
-          <label className="admin-input-wrap">
-            <span>Buscar</span>
-            <input
+          <Field label="Buscar">
+            <Input
               type="text"
               placeholder="Nome ou e-mail"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
-          </label>
+          </Field>
 
-          <label className="admin-input-wrap admin-input-wrap--select">
-            <span>Filtro</span>
-            <select
+          <Field label="Filtro">
+            <Select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
+              onChange={(event) =>
+                setStatusFilter(event.target.value as UserStatusFilter)
+              }
             >
               <option value="ALL">Todos</option>
               <option value="ACTIVE">Ativos</option>
               <option value="BLOCKED">Bloqueados</option>
               <option value="BANNED">Banidos</option>
               <option value="ADMIN">Admins</option>
-            </select>
-          </label>
+            </Select>
+          </Field>
         </div>
 
         {filteredUsers.length === 0 ? (
@@ -589,59 +615,65 @@ export function AdminPage() {
                   </div>
 
                   <div className="admin-user-card__actions">
-                    <button
+                    <Button
                       type="button"
+                      variant="danger"
                       className="admin-action-button admin-action-button--danger"
                       disabled={isBusy || user.isBlocked}
                       onClick={() => handleAccessAction(user.id, "BLOCK")}
                     >
                       {obterLabelBotao("BLOCK", isBusy, user.isBlocked)}
-                    </button>
+                    </Button>
 
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
                       className="admin-action-button"
                       disabled={isBusy || !user.isBlocked}
                       onClick={() => handleAccessAction(user.id, "UNBLOCK")}
                     >
                       {obterLabelBotao("UNBLOCK", isBusy, user.isBlocked)}
-                    </button>
+                    </Button>
 
-                    <button
+                    <Button
                       type="button"
+                      variant="warning"
                       className="admin-action-button admin-action-button--warning"
                       disabled={isBusy}
                       onClick={() => handleAccessAction(user.id, "BAN_5_DAYS")}
                     >
                       {obterLabelBotao("BAN_5_DAYS", isBusy, user.isBlocked)}
-                    </button>
+                    </Button>
 
-                    <button
+                    <Button
                       type="button"
+                      variant="warning"
                       className="admin-action-button admin-action-button--warning"
                       disabled={isBusy}
                       onClick={() => handleAccessAction(user.id, "BAN_30_DAYS")}
                     >
                       {obterLabelBotao("BAN_30_DAYS", isBusy, user.isBlocked)}
-                    </button>
+                    </Button>
 
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
                       className="admin-action-button"
                       disabled={isBusy || !hasActiveBan}
                       onClick={() => handleAccessAction(user.id, "CLEAR_BAN")}
                     >
                       {obterLabelBotao("CLEAR_BAN", isBusy, user.isBlocked)}
-                    </button>
+                    </Button>
 
-                    <button
+                    <Button
                       type="button"
+                      variant="danger"
                       className="admin-action-button admin-action-button--danger-soft"
                       disabled={isBusy}
                       onClick={() => handleDeleteUser(user)}
                     >
                       {isBusy ? "Processando..." : "Excluir"}
-                    </button>
+                    </Button>
                   </div>
                 </article>
               );
@@ -686,7 +718,7 @@ export function AdminPage() {
                 ) : (
                   data.ticketsByStatus.map((item) => (
                     <li key={item.status}>
-                      <strong>{item.status}</strong>
+                      <strong>{traduzirStatusTicket(item.status)}</strong>
                       <span>{item._count.status}</span>
                     </li>
                   ))
@@ -703,7 +735,7 @@ export function AdminPage() {
                 ) : (
                   data.tasksByStatus.map((item) => (
                     <li key={item.status}>
-                      <strong>{item.status}</strong>
+                      <strong>{traduzirStatusTarefa(item.status)}</strong>
                       <span>{item._count.status}</span>
                     </li>
                   ))
