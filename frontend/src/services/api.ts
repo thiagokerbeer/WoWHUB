@@ -25,6 +25,10 @@ api.interceptors.response.use(
     if ((status === 401 || status === 403) && currentPath.startsWith("/app")) {
       localStorage.removeItem("wowhub_token");
       localStorage.removeItem("wowhub_user");
+      sessionStorage.setItem(
+        "wowhub_auth_message",
+        "Sua sessão expirou ou não é mais válida. Faça login novamente para continuar."
+      );
       window.dispatchEvent(new Event("wowhub:unauthorized"));
     }
 

@@ -11,6 +11,8 @@ type LocationState = {
   };
 };
 
+const AUTH_MESSAGE_KEY = "wowhub_auth_message";
+
 export function LoginPage() {
   const { login, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
@@ -22,7 +24,17 @@ export function LoginPage() {
   });
 
   const [error, setError] = useState("");
+  const [infoMessage, setInfoMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const storedMessage = sessionStorage.getItem(AUTH_MESSAGE_KEY);
+
+    if (storedMessage) {
+      setInfoMessage(storedMessage);
+      sessionStorage.removeItem(AUTH_MESSAGE_KEY);
+    }
+  }, []);
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
@@ -36,6 +48,7 @@ export function LoginPage() {
     try {
       setSubmitting(true);
       setError("");
+      setInfoMessage("");
 
       await login({
         email: form.email.trim().toLowerCase(),
@@ -95,6 +108,8 @@ export function LoginPage() {
             estabilidade.
           </p>
         </div>
+
+        {infoMessage ? <div className="success-box">{infoMessage}</div> : null}
 
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>

@@ -20,13 +20,15 @@ type RegisterData = {
   password: string;
 };
 
+type LogoutReason = "manual" | "expired";
+
 type AuthContextType = {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
   login: (data: LoginData) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
-  logout: () => void;
+  logout: (reason?: LogoutReason) => void;
   restoreSession: () => Promise<void>;
 };
 
@@ -34,6 +36,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 const TOKEN_KEY = "wowhub_token";
 const USER_KEY = "wowhub_user";
+const AUTH_MESSAGE_KEY = "wowhub_auth_message";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
@@ -62,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function persistSession(data: AuthResponse) {
     localStorage.setItem(TOKEN_KEY, data.token);
     localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    sessionStorage.removeItem(AUTH_MESSAGE_KEY);
     setUser(data.user);
   }
 
@@ -79,6 +83,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(USER_KEY, JSON.stringify(response.data));
       setUser(response.data);
     } catch {
+      sessionStorage.setItem(
+        AUTH_MESSAGE_KEY,
+        "Sua sessão expirou ou não é mais válida. Faça login novamente para continuar."
+      );
       clearSession();
     } finally {
       setLoading(false);
@@ -117,7 +125,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await handleAuth("/auth/register", data);
   }
 
-  function logout() {
+  function logout(reason: LogoutReason = "manual") {
+    if (reason === "manual") {
+      sessionStorage.setItem(
+        AUTH_MESSAGE_KEY,
+        "Você saiu da sua conta com segurança."
+      );
+    }
+
+    if (reason === "expired") {
+      sessionStorage.setItem(
+        AUTH_MESSAGE_KEY,
+        "Sua sessão expirou ou não é mais válida. Faça login novamente para continuar."
+      );
+    }
+
     clearSession();
   }
 
