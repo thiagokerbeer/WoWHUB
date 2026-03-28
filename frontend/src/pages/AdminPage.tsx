@@ -748,3 +748,5 @@ export function AdminPage() {
     </section>
   );
 }
+
+export default AdminPage;
