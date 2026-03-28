@@ -30,11 +30,30 @@ export function ProtectedRoute({
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{
+          from: location,
+          reason: "auth-required",
+          message: "Faça login para continuar no WoWHUB.",
+        }}
+      />
+    );
   }
 
   if (adminOnly && user?.role !== "ADMIN") {
-    return <Navigate to="/app" replace />;
+    return (
+      <Navigate
+        to="/app"
+        replace
+        state={{
+          reason: "admin-only",
+          message: "Seu perfil não tem acesso à área administrativa.",
+        }}
+      />
+    );
   }
 
   return <>{children}</>;

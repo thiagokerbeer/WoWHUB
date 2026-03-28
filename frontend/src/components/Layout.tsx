@@ -1,6 +1,5 @@
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { BrandLogo } from "./BrandLogo";
 import { InteractiveBackground } from "./InteractiveBackground";
 
 export function Layout() {
@@ -8,8 +7,10 @@ export function Layout() {
   const navigate = useNavigate();
 
   function handleLogout() {
-    logout("manual");
-    navigate("/login", { replace: true });
+    logout({
+      redirectTo: "/login",
+      message: "Você saiu da sua conta com sucesso.",
+    });
   }
 
   return (
@@ -17,42 +18,38 @@ export function Layout() {
       <InteractiveBackground />
 
       <aside className="sidebar">
-        <div className="brand-block">
-          <BrandLogo compact subtitle="Control Center" />
+        <div className="sidebar__brand">
+          <span className="sidebar__eyebrow">WoWHUB Platform</span>
+          <strong>WoWHUB</strong>
         </div>
 
-        <p className="sidebar-copy">
-          Central operacional para suporte, tarefas e gestão.
-        </p>
+        <nav className="sidebar__nav">
+          <NavLink to="/app" end>
+            Dashboard
+          </NavLink>
 
-        <nav className="nav-links">
-          <NavLink to="/app">Painel</NavLink>
-          <NavLink to="/app/tickets">Chamados</NavLink>
-          <NavLink to="/app/tasks">Tarefas</NavLink>
-          {user?.role === "ADMIN" && <NavLink to="/app/admin">Admin</NavLink>}
+          <NavLink to="/app/tickets">Tickets</NavLink>
+
+          <NavLink to="/app/tasks">Tasks</NavLink>
+
+          {user?.role === "ADMIN" ? (
+            <NavLink to="/app/admin">Admin</NavLink>
+          ) : null}
         </nav>
 
-        <div className="profile-card">
-          <div className="avatar-circle">
-            {user?.avatar || user?.name.slice(0, 2).toUpperCase()}
+        <div className="sidebar__footer">
+          <div className="sidebar__user">
+            <span className="sidebar__user-name">{user?.name}</span>
+            <span className="sidebar__user-role">{user?.role}</span>
           </div>
 
-          <div>
-            <strong>{user?.name}</strong>
-            <p>{user?.role === "ADMIN" ? "Administrador" : "Operador"}</p>
-          </div>
+          <button type="button" className="sidebar__logout" onClick={handleLogout}>
+            Sair
+          </button>
         </div>
-
-        <Link to="/" className="ghost-button">
-          Voltar para home
-        </Link>
-
-        <button type="button" className="ghost-button" onClick={handleLogout}>
-          Sair
-        </button>
       </aside>
 
-      <main className="main-panel">
+      <main className="app-content">
         <Outlet />
       </main>
     </div>

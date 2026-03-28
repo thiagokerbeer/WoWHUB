@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -7,20 +8,34 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { api } from "../services/api";
+import {
+  AUTH_TOKEN_KEY,
+  AUTH_USER_KEY,
+  WOWHUB_AUTH_EVENTS,
+  clearStoredAuth,
+  getStoredToken,
+  getStoredUser,
+  setStoredAuth,
+} from "../services/api";
 import type { AuthResponse, User } from "../types";
 
 type LoginData = {
   email: string;
   password: string;
+  turnstileToken?: string;
 };
 
 type RegisterData = {
   name: string;
   email: string;
   password: string;
+  turnstileToken?: string;
 };
 
-type LogoutReason = "manual" | "expired";
+type LogoutOptions = {
+  redirectTo?: string;
+  message?: string;
+};
 
 type AuthContextType = {
   user: User | null;
@@ -28,93 +43,86 @@ type AuthContextType = {
   isAuthenticated: boolean;
   login: (data: LoginData) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
-  logout: (reason?: LogoutReason) => void;
-  restoreSession: () => Promise<void>;
+  logout: (options?: LogoutOptions) => void;
+  forceLogout: (message?: string) => void;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const TOKEN_KEY = "wowhub_token";
-const USER_KEY = "wowhub_user";
-const AUTH_MESSAGE_KEY = "wowhub_auth_message";
+function dispatchAuthEvent(
+  eventName: string,
+  detail?: Record<string, unknown>
+) {
+  window.dispatchEvent(new CustomEvent(eventName, { detail }));
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
-    const storedUser = localStorage.getItem(USER_KEY);
-
-    if (!storedUser) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(storedUser) as User;
-    } catch {
-      localStorage.removeItem(USER_KEY);
-      return null;
-    }
+    const storedUser = getStoredUser();
+    return storedUser as User | null;
   });
-
   const [loading, setLoading] = useState(true);
 
-  function clearSession() {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+  const clearSessionState = useCallback(() => {
+    clearStoredAuth();
     setUser(null);
-  }
+    setLoading(false);
+  }, []);
 
-  function persistSession(data: AuthResponse) {
-    localStorage.setItem(TOKEN_KEY, data.token);
-    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-    sessionStorage.removeItem(AUTH_MESSAGE_KEY);
-    setUser(data.user);
-  }
-
-  async function restoreSession() {
-    const token = localStorage.getItem(TOKEN_KEY);
+  useEffect(() => {
+    const token = getStoredToken();
 
     if (!token) {
-      clearSession();
       setLoading(false);
       return;
     }
 
-    try {
-      const response = await api.get<User>("/auth/me");
-      localStorage.setItem(USER_KEY, JSON.stringify(response.data));
-      setUser(response.data);
-    } catch {
-      sessionStorage.setItem(
-        AUTH_MESSAGE_KEY,
-        "Sua sessão expirou ou não é mais válida. Faça login novamente para continuar."
-      );
-      clearSession();
-    } finally {
-      setLoading(false);
-    }
-  }
+    api
+      .get<User>("/auth/me")
+      .then((response) => {
+        setUser(response.data);
+        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(response.data));
+      })
+      .catch(() => {
+        clearSessionState();
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [clearSessionState]);
 
   useEffect(() => {
-    restoreSession();
-  }, []);
-
-  useEffect(() => {
-    function handleUnauthorized() {
-      clearSession();
+    function handleSessionExpired() {
+      clearSessionState();
     }
 
-    window.addEventListener("wowhub:unauthorized", handleUnauthorized);
+    function handleLogout() {
+      clearSessionState();
+    }
+
+    window.addEventListener(
+      WOWHUB_AUTH_EVENTS.SESSION_EXPIRED,
+      handleSessionExpired
+    );
+    window.addEventListener(WOWHUB_AUTH_EVENTS.LOGOUT, handleLogout);
 
     return () => {
-      window.removeEventListener("wowhub:unauthorized", handleUnauthorized);
+      window.removeEventListener(
+        WOWHUB_AUTH_EVENTS.SESSION_EXPIRED,
+        handleSessionExpired
+      );
+      window.removeEventListener(WOWHUB_AUTH_EVENTS.LOGOUT, handleLogout);
     };
-  }, []);
+  }, [clearSessionState]);
 
   async function handleAuth(
     endpoint: "/auth/login" | "/auth/register",
     data: LoginData | RegisterData
   ) {
     const response = await api.post<AuthResponse>(endpoint, data);
-    persistSession(response.data);
+
+    setStoredAuth(response.data.token, response.data.user);
+    setUser(response.data.user);
   }
 
   async function login(data: LoginData) {
@@ -125,33 +133,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await handleAuth("/auth/register", data);
   }
 
-  function logout(reason: LogoutReason = "manual") {
-    if (reason === "manual") {
-      sessionStorage.setItem(
-        AUTH_MESSAGE_KEY,
-        "Você saiu da sua conta com segurança."
-      );
-    }
+  function logout(options?: LogoutOptions) {
+    clearStoredAuth();
+    setUser(null);
 
-    if (reason === "expired") {
-      sessionStorage.setItem(
-        AUTH_MESSAGE_KEY,
-        "Sua sessão expirou ou não é mais válida. Faça login novamente para continuar."
-      );
-    }
-
-    clearSession();
+    dispatchAuthEvent(WOWHUB_AUTH_EVENTS.LOGOUT, {
+      redirectTo: options?.redirectTo ?? "/login",
+      message: options?.message ?? "Você saiu da sua conta com sucesso.",
+    });
   }
 
-  const value = useMemo(
+  function forceLogout(message?: string) {
+    clearStoredAuth();
+    setUser(null);
+
+    dispatchAuthEvent(WOWHUB_AUTH_EVENTS.SESSION_EXPIRED, {
+      message:
+        message ||
+        "Sua sessão expirou ou foi encerrada. Faça login novamente.",
+    });
+  }
+
+  const value = useMemo<AuthContextType>(
     () => ({
       user,
       loading,
-      isAuthenticated: !!user,
+      isAuthenticated: Boolean(user),
       login,
       register,
       logout,
-      restoreSession,
+      forceLogout,
     }),
     [user, loading]
   );

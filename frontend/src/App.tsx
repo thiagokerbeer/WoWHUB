@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { AuthFeedback } from "./components/AuthFeedback";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { PublicOnlyRoute } from "./components/PublicOnlyRoute";
@@ -15,6 +16,8 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <AuthFeedback />
+
         <Routes>
           <Route
             path="/"
