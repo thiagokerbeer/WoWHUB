@@ -4,7 +4,31 @@ import { Ticket } from "../types";
 import { useAuth } from "../context/AuthContext";
 import "./TicketsPage.css";
 
-const defaultForm = {
+type TicketStatus =
+  | "OPEN"
+  | "IN_PROGRESS"
+  | "WAITING_RESPONSE"
+  | "RESOLVED"
+  | "CLOSED";
+
+type TicketPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+type NoticeState =
+  | {
+      type: "success" | "error";
+      title: string;
+      message: string;
+    }
+  | null;
+
+type TicketFormState = {
+  title: string;
+  description: string;
+  category: string;
+  priority: TicketPriority;
+};
+
+const initialForm: TicketFormState = {
   title: "",
   description: "",
   category: "Suporte",
@@ -34,7 +58,11 @@ function traduzirPrioridade(priority: string) {
   return mapa[priority] || priority;
 }
 
-function formatarData(dateString: string) {
+function formatarData(dateString?: string | null) {
+  if (!dateString) {
+    return "Sem data";
+  }
+
   try {
     return new Intl.DateTimeFormat("pt-BR", {
       day: "2-digit",
@@ -48,28 +76,113 @@ function formatarData(dateString: string) {
   }
 }
 
+function buildErrorMessage(error: unknown, fallback: string) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof (error as { response?: unknown }).response === "object"
+  ) {
+    const response = (error as { response?: { data?: { message?: string } } })
+      .response;
+    const message = response?.data?.message;
+
+    if (typeof message === "string" && message.trim()) {
+      return message;
+    }
+  }
+
+  return fallback;
+}
+
+function calcularSaude(
+  open: number,
+  inProgress: number,
+  waiting: number,
+  resolved: number
+) {
+  const total = open + inProgress + waiting + resolved;
+
+  if (total === 0) {
+    return {
+      label: "Fila vazia",
+      tone: "neutral",
+      text: "Ainda não há chamados registrados neste ambiente.",
+    };
+  }
+
+  if (resolved >= open + inProgress + waiting) {
+    return {
+      label: "Operação estável",
+      tone: "success",
+      text: "O volume resolvido já domina a fila monitorada.",
+    };
+  }
+
+  if (open >= inProgress && open >= waiting) {
+    return {
+      label: "Atenção na fila",
+      tone: "warning",
+      text: "Há concentração de chamados abertos esperando avanço.",
+    };
+  }
+
+  return {
+    label: "Ritmo ativo",
+    tone: "info",
+    text: "O time está movimentando a fila com consistência.",
+  };
+}
+
 export function TicketsPage() {
   const { user } = useAuth();
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [form, setForm] = useState(defaultForm);
-  const [commentText, setCommentText] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [activeStatusTicketId, setActiveStatusTicketId] = useState<string | null>(null);
-  const [activeCommentTicketId, setActiveCommentTicketId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [priorityFilter, setPriorityFilter] = useState("ALL");
+  const [form, setForm] = useState<TicketFormState>(initialForm);
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null);
 
-  async function loadTickets() {
-    setLoading(true);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
+  const [commentingTicketId, setCommentingTicketId] = useState<string | null>(
+    null
+  );
+
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | TicketStatus>("ALL");
+  const [priorityFilter, setPriorityFilter] = useState<
+    "ALL" | TicketPriority
+  >("ALL");
+
+  const [notice, setNotice] = useState<NoticeState>(null);
+
+  async function loadTickets(options?: { silent?: boolean }) {
+    const silent = options?.silent ?? false;
 
     try {
+      if (silent) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
       const response = await api.get<Ticket[]>("/tickets");
       setTickets(response.data);
+    } catch (error) {
+      console.error(error);
+      setNotice({
+        type: "error",
+        title: "Falha ao carregar chamados",
+        message: buildErrorMessage(
+          error,
+          "Não foi possível carregar a fila de chamados agora."
+        ),
+      });
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -77,163 +190,346 @@ export function TicketsPage() {
     loadTickets();
   }, []);
 
+  useEffect(() => {
+    if (!notice) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setNotice(null);
+    }, 4500);
+
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
+
   const categorias = useMemo(() => {
     const base = ["Suporte"];
-    const dinamicas = Array.from(new Set(tickets.map((ticket) => ticket.category))).filter(Boolean);
+    const dinamicas = Array.from(
+      new Set(tickets.map((ticket) => ticket.category).filter(Boolean))
+    );
+
     return Array.from(new Set([...base, ...dinamicas]));
   }, [tickets]);
 
   const metricas = useMemo(() => {
-    const abertos = tickets.filter((ticket) => ticket.status === "OPEN").length;
-    const emAndamento = tickets.filter((ticket) => ticket.status === "IN_PROGRESS").length;
-    const aguardando = tickets.filter((ticket) => ticket.status === "WAITING_RESPONSE").length;
-    const resolvidos = tickets.filter(
-      (ticket) => ticket.status === "RESOLVED" || ticket.status === "CLOSED"
+    const open = tickets.filter((ticket) => ticket.status === "OPEN").length;
+    const inProgress = tickets.filter(
+      (ticket) => ticket.status === "IN_PROGRESS"
+    ).length;
+    const waiting = tickets.filter(
+      (ticket) => ticket.status === "WAITING_RESPONSE"
+    ).length;
+    const resolved = tickets.filter(
+      (ticket) =>
+        ticket.status === "RESOLVED" || ticket.status === "CLOSED"
+    ).length;
+    const critical = tickets.filter(
+      (ticket) => ticket.priority === "CRITICAL"
     ).length;
 
-    return { abertos, emAndamento, aguardando, resolvidos };
+    return {
+      open,
+      inProgress,
+      waiting,
+      resolved,
+      critical,
+      total: tickets.length,
+      health: calcularSaude(open, inProgress, waiting, resolved),
+    };
   }, [tickets]);
 
   const ticketsFiltrados = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+
     return tickets.filter((ticket) => {
       const bateBusca =
-        search.trim() === "" ||
-        ticket.title.toLowerCase().includes(search.toLowerCase()) ||
-        ticket.description.toLowerCase().includes(search.toLowerCase()) ||
-        ticket.user.name.toLowerCase().includes(search.toLowerCase()) ||
-        ticket.category.toLowerCase().includes(search.toLowerCase());
+        normalizedSearch === "" ||
+        ticket.title.toLowerCase().includes(normalizedSearch) ||
+        ticket.description.toLowerCase().includes(normalizedSearch) ||
+        ticket.user.name.toLowerCase().includes(normalizedSearch) ||
+        ticket.user.email.toLowerCase().includes(normalizedSearch) ||
+        ticket.category.toLowerCase().includes(normalizedSearch);
 
-      const bateStatus = statusFilter === "ALL" || ticket.status === statusFilter;
-      const batePrioridade = priorityFilter === "ALL" || ticket.priority === priorityFilter;
+      const bateStatus =
+        statusFilter === "ALL" || ticket.status === statusFilter;
+
+      const batePrioridade =
+        priorityFilter === "ALL" || ticket.priority === priorityFilter;
 
       return bateBusca && bateStatus && batePrioridade;
     });
   }, [tickets, search, statusFilter, priorityFilter]);
 
-  async function handleCreate(event: FormEvent<HTMLFormElement>) {
+  async function handleCreateTicket(event: FormEvent) {
     event.preventDefault();
 
     try {
       setCreating(true);
+
       await api.post("/tickets", form);
-      setForm(defaultForm);
-      await loadTickets();
+
+      setNotice({
+        type: "success",
+        title: "Chamado criado",
+        message: "O chamado entrou na fila com sucesso.",
+      });
+
+      setForm(initialForm);
+      await loadTickets({ silent: true });
+    } catch (error) {
+      console.error(error);
+      setNotice({
+        type: "error",
+        title: "Falha ao criar chamado",
+        message: buildErrorMessage(
+          error,
+          "Não foi possível abrir o chamado agora."
+        ),
+      });
     } finally {
       setCreating(false);
     }
   }
 
-  async function handleStatus(ticketId: string, status: string) {
+  async function handleStatusChange(ticketId: string, status: TicketStatus) {
     try {
-      setActiveStatusTicketId(ticketId);
+      setActiveTicketId(ticketId);
+
       await api.patch(`/tickets/${ticketId}/status`, { status });
-      await loadTickets();
+
+      setNotice({
+        type: "success",
+        title: "Status atualizado",
+        message: `O chamado foi movido para "${traduzirStatus(status)}".`,
+      });
+
+      await loadTickets({ silent: true });
+    } catch (error) {
+      console.error(error);
+      setNotice({
+        type: "error",
+        title: "Falha ao atualizar chamado",
+        message: buildErrorMessage(
+          error,
+          "Não foi possível atualizar o status deste chamado agora."
+        ),
+      });
     } finally {
-      setActiveStatusTicketId(null);
+      setActiveTicketId(null);
     }
   }
 
-  async function handleComment(ticketId: string) {
-    const message = commentText[ticketId]?.trim();
+  async function handleCommentSubmit(ticketId: string) {
+    const message = (commentDrafts[ticketId] || "").trim();
 
     if (!message) {
+      setNotice({
+        type: "error",
+        title: "Comentário vazio",
+        message: "Digite um comentário antes de enviar.",
+      });
       return;
     }
 
     try {
-      setActiveCommentTicketId(ticketId);
+      setCommentingTicketId(ticketId);
+
       await api.post(`/tickets/${ticketId}/comments`, { message });
-      setCommentText((prev) => ({ ...prev, [ticketId]: "" }));
-      await loadTickets();
+
+      setCommentDrafts((current) => ({
+        ...current,
+        [ticketId]: "",
+      }));
+
+      setNotice({
+        type: "success",
+        title: "Comentário adicionado",
+        message: "A atualização foi registrada no chamado.",
+      });
+
+      await loadTickets({ silent: true });
+      setExpandedTicketId(ticketId);
+    } catch (error) {
+      console.error(error);
+      setNotice({
+        type: "error",
+        title: "Falha ao comentar",
+        message: buildErrorMessage(
+          error,
+          "Não foi possível registrar o comentário agora."
+        ),
+      });
     } finally {
-      setActiveCommentTicketId(null);
+      setCommentingTicketId(null);
     }
   }
 
+  function toggleExpanded(ticketId: string) {
+    setExpandedTicketId((current) => (current === ticketId ? null : ticketId));
+  }
+
+  if (loading) {
+    return (
+      <section className="tickets-page tickets-page--loading">
+        <div className="tickets-loading-hero shimmer" />
+        <div className="tickets-loading-grid">
+          <div className="tickets-loading-card shimmer" />
+          <div className="tickets-loading-card shimmer" />
+          <div className="tickets-loading-card shimmer" />
+          <div className="tickets-loading-card shimmer" />
+        </div>
+        <div className="tickets-loading-panel shimmer" />
+        <div className="tickets-loading-panel shimmer" />
+      </section>
+    );
+  }
+
   return (
-    <div className="page-stack tickets-page">
-      <section className="header-card wow-gradient tickets-hero">
+    <section className="tickets-page">
+      <header className="tickets-hero">
         <div className="tickets-hero__content">
-          <span className="eyebrow">Trilha de suporte</span>
-          <h1>Chamados</h1>
-          <p className="tickets-hero__lead">
-            Abra novas demandas, acompanhe a conversa e conduza o fluxo de atendimento com cara de
-            produto real.
+          <span className="tickets-eyebrow">Central de suporte</span>
+          <h1>Fila operacional de chamados</h1>
+          <p>
+            Acompanhe incidentes, mova status com clareza e registre contexto
+            útil para manter a operação viva, rastreável e organizada.
           </p>
 
           <div className="tickets-hero__chips">
-            <span className="tickets-chip">Fila operacional</span>
-            <span className="tickets-chip">Histórico por ticket</span>
-            <span className="tickets-chip">Acompanhamento centralizado</span>
+            <span className="tickets-chip">Fluxo de suporte</span>
+            <span className="tickets-chip">Histórico comentado</span>
+            <span className="tickets-chip">Prioridade visível</span>
           </div>
         </div>
 
-        <aside className="tickets-hero__summary">
-          <div className="tickets-summary-card">
-            <span className="tickets-summary-card__label">Leitura rápida da fila</span>
+        <div className="tickets-hero__sidecard">
+          <div className="tickets-hero__sidecard-top">
+            <span className="tickets-eyebrow">Saúde da fila</span>
+            <span
+              className={`tickets-status-badge tickets-status-badge--${metricas.health.tone}`}
+            >
+              {refreshing ? "Atualizando..." : metricas.health.label}
+            </span>
+          </div>
 
-            <div className="tickets-summary-card__grid">
-              <div>
-                <small>Abertos</small>
-                <strong>{metricas.abertos}</strong>
-              </div>
-              <div>
-                <small>Em andamento</small>
-                <strong>{metricas.emAndamento}</strong>
-              </div>
-              <div>
-                <small>Aguardando</small>
-                <strong>{metricas.aguardando}</strong>
-              </div>
-              <div>
-                <small>Resolvidos</small>
-                <strong>{metricas.resolvidos}</strong>
-              </div>
+          <p>{metricas.health.text}</p>
+
+          <div className="tickets-hero__mini-grid">
+            <div className="tickets-mini-stat">
+              <span>Total</span>
+              <strong>{metricas.total}</strong>
+            </div>
+            <div className="tickets-mini-stat">
+              <span>Abertos</span>
+              <strong>{metricas.open}</strong>
+            </div>
+            <div className="tickets-mini-stat">
+              <span>Resolvidos</span>
+              <strong>{metricas.resolved}</strong>
             </div>
           </div>
-        </aside>
-      </section>
+        </div>
+      </header>
 
-      <section className="tickets-layout">
-        <aside className="panel-card tickets-create-card">
-          <div className="tickets-create-card__header">
-            <span className="eyebrow">Novo chamado</span>
-            <h2>Abrir demanda</h2>
-            <p className="body-copy">
-              Registre o contexto da solicitação para deixar o fluxo mais claro desde a entrada.
-            </p>
+      {notice ? (
+        <div
+          className={`tickets-notice tickets-notice--${notice.type}`}
+          role="status"
+          aria-live="polite"
+        >
+          <div>
+            <strong>{notice.title}</strong>
+            <p>{notice.message}</p>
           </div>
 
-          <form className="tickets-form" onSubmit={handleCreate}>
-            <label>
-              Título
+          <button type="button" onClick={() => setNotice(null)}>
+            ×
+          </button>
+        </div>
+      ) : null}
+
+      <section className="tickets-stats-grid">
+        <article className="tickets-stat-card">
+          <span className="tickets-stat-card__label">Abertos</span>
+          <strong>{metricas.open}</strong>
+          <p>Chamados aguardando resposta ou início de atendimento.</p>
+        </article>
+
+        <article className="tickets-stat-card">
+          <span className="tickets-stat-card__label">Em andamento</span>
+          <strong>{metricas.inProgress}</strong>
+          <p>Itens sendo tratados pela operação neste momento.</p>
+        </article>
+
+        <article className="tickets-stat-card">
+          <span className="tickets-stat-card__label">Aguardando</span>
+          <strong>{metricas.waiting}</strong>
+          <p>Chamados esperando retorno para seguir no fluxo.</p>
+        </article>
+
+        <article className="tickets-stat-card">
+          <span className="tickets-stat-card__label">Críticos</span>
+          <strong>{metricas.critical}</strong>
+          <p>Itens com prioridade máxima dentro da fila.</p>
+        </article>
+      </section>
+
+      <div className="tickets-layout">
+        <aside className="tickets-form-card">
+          <div className="tickets-panel-card__header">
+            <div>
+              <span className="tickets-eyebrow">Novo chamado</span>
+              <h2>Abrir solicitação</h2>
+              <p className="tickets-panel-card__subtitle">
+                Registre o problema com clareza para acelerar a resposta da
+                operação.
+              </p>
+            </div>
+          </div>
+
+          <form className="tickets-form" onSubmit={handleCreateTicket}>
+            <label className="tickets-input-wrap">
+              <span>Título</span>
               <input
                 value={form.title}
-                onChange={(e) => setForm((current) => ({ ...current, title: e.target.value }))}
-                placeholder="Ex.: Computador não liga"
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    title: event.target.value,
+                  }))
+                }
+                placeholder="Ex.: Internet lenta no setor comercial"
                 required
               />
             </label>
 
-            <label>
-              Descrição
+            <label className="tickets-input-wrap">
+              <span>Descrição</span>
               <textarea
                 value={form.description}
-                onChange={(e) =>
-                  setForm((current) => ({ ...current, description: e.target.value }))
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    description: event.target.value,
+                  }))
                 }
-                placeholder="Descreva o cenário, impacto e contexto do problema"
-                rows={5}
+                rows={6}
+                placeholder="Explique o problema com o máximo de contexto útil"
                 required
               />
             </label>
 
             <div className="tickets-form__split">
-              <label>
-                Categoria
+              <label className="tickets-input-wrap">
+                <span>Categoria</span>
                 <select
                   value={form.category}
-                  onChange={(e) => setForm((current) => ({ ...current, category: e.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      category: event.target.value,
+                    }))
+                  }
                 >
                   {categorias.map((categoria) => (
                     <option key={categoria} value={categoria}>
@@ -243,11 +539,16 @@ export function TicketsPage() {
                 </select>
               </label>
 
-              <label>
-                Prioridade
+              <label className="tickets-input-wrap">
+                <span>Prioridade</span>
                 <select
                   value={form.priority}
-                  onChange={(e) => setForm((current) => ({ ...current, priority: e.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      priority: event.target.value as TicketPriority,
+                    }))
+                  }
                 >
                   <option value="LOW">Baixa</option>
                   <option value="MEDIUM">Média</option>
@@ -257,193 +558,315 @@ export function TicketsPage() {
               </label>
             </div>
 
-            <button className="button-primary tickets-submit-button" disabled={creating}>
-              {creating ? "Criando chamado..." : "Criar chamado"}
+            <button
+              type="submit"
+              className="tickets-primary-button"
+              disabled={creating}
+            >
+              {creating ? "Abrindo chamado..." : "Abrir chamado"}
             </button>
           </form>
         </aside>
 
-        <section className="page-stack tickets-main-column">
-          <div className="panel-card tickets-filter-card">
-            <div className="tickets-filter-card__header">
+        <section className="tickets-main-column">
+          <article className="tickets-panel-card">
+            <div className="tickets-panel-card__header tickets-panel-card__header--stacked">
               <div>
-                <span className="eyebrow">Painel de triagem</span>
+                <span className="tickets-eyebrow">Painel de atendimento</span>
                 <h2>Fila de chamados</h2>
+                <p className="tickets-panel-card__subtitle">
+                  Filtre prioridades, acompanhe contexto e mova a fila com mais
+                  previsibilidade.
+                </p>
               </div>
-              <span className="tickets-filter-card__count">
-                {ticketsFiltrados.length} {ticketsFiltrados.length === 1 ? "item" : "itens"}
+
+              <div className="tickets-toolbar">
+                <label className="tickets-input-wrap">
+                  <span>Buscar</span>
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Título, descrição, solicitante ou categoria"
+                  />
+                </label>
+
+                <label className="tickets-input-wrap tickets-input-wrap--compact">
+                  <span>Status</span>
+                  <select
+                    value={statusFilter}
+                    onChange={(event) =>
+                      setStatusFilter(event.target.value as "ALL" | TicketStatus)
+                    }
+                  >
+                    <option value="ALL">Todos</option>
+                    <option value="OPEN">Aberto</option>
+                    <option value="IN_PROGRESS">Em andamento</option>
+                    <option value="WAITING_RESPONSE">
+                      Aguardando resposta
+                    </option>
+                    <option value="RESOLVED">Resolvido</option>
+                    <option value="CLOSED">Fechado</option>
+                  </select>
+                </label>
+
+                <label className="tickets-input-wrap tickets-input-wrap--compact">
+                  <span>Prioridade</span>
+                  <select
+                    value={priorityFilter}
+                    onChange={(event) =>
+                      setPriorityFilter(
+                        event.target.value as "ALL" | TicketPriority
+                      )
+                    }
+                  >
+                    <option value="ALL">Todas</option>
+                    <option value="LOW">Baixa</option>
+                    <option value="MEDIUM">Média</option>
+                    <option value="HIGH">Alta</option>
+                    <option value="CRITICAL">Crítica</option>
+                  </select>
+                </label>
+
+                <button
+                  type="button"
+                  className="tickets-ghost-button"
+                  onClick={() => loadTickets({ silent: true })}
+                >
+                  Atualizar
+                </button>
+              </div>
+            </div>
+
+            <div className="tickets-toolbar__meta">
+              <span className="tickets-list-count">
+                {ticketsFiltrados.length}{" "}
+                {ticketsFiltrados.length === 1 ? "item" : "itens"}
               </span>
+
+              {refreshing ? (
+                <span className="tickets-refreshing-text">
+                  Sincronizando chamados...
+                </span>
+              ) : null}
             </div>
+          </article>
 
-            <div className="tickets-filters">
-              <label className="tickets-filters__search">
-                Buscar
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Título, usuário, categoria ou descrição"
-                />
-              </label>
-
-              <label>
-                Status
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                  <option value="ALL">Todos</option>
-                  <option value="OPEN">Aberto</option>
-                  <option value="IN_PROGRESS">Em andamento</option>
-                  <option value="WAITING_RESPONSE">Aguardando resposta</option>
-                  <option value="RESOLVED">Resolvido</option>
-                  <option value="CLOSED">Fechado</option>
-                </select>
-              </label>
-
-              <label>
-                Prioridade
-                <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
-                  <option value="ALL">Todas</option>
-                  <option value="LOW">Baixa</option>
-                  <option value="MEDIUM">Média</option>
-                  <option value="HIGH">Alta</option>
-                  <option value="CRITICAL">Crítica</option>
-                </select>
-              </label>
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="panel-card">Carregando chamados...</div>
-          ) : ticketsFiltrados.length === 0 ? (
-            <div className="panel-card tickets-empty-state">
-              <span className="eyebrow">Fila vazia</span>
-              <h2>Nenhum chamado encontrado</h2>
-              <p className="body-copy">
-                Ajuste os filtros ou abra uma nova demanda para começar o fluxo.
+          {ticketsFiltrados.length === 0 ? (
+            <article className="tickets-empty-state">
+              <span className="tickets-eyebrow">Sem chamados</span>
+              <h2>Nenhum item encontrado</h2>
+              <p>
+                Ajuste os filtros ou abra um novo chamado para iniciar a fila de
+                atendimento.
               </p>
-            </div>
+            </article>
           ) : (
-            <div className="page-stack tickets-list">
-              {ticketsFiltrados.map((ticket) => (
-                <article className="panel-card ticket-card" key={ticket.id}>
-                  <div className="ticket-card__header">
-                    <div className="ticket-card__title-block">
-                      <div className="ticket-card__title-row">
-                        <h2>{ticket.title}</h2>
-                        <span className="ticket-card__date">{formatarData(ticket.createdAt)}</span>
+            <div className="tickets-list">
+              {ticketsFiltrados.map((ticket) => {
+                const isBusy = activeTicketId === ticket.id;
+                const isCommenting = commentingTicketId === ticket.id;
+                const isExpanded = expandedTicketId === ticket.id;
+
+                return (
+                  <article className="ticket-card" key={ticket.id}>
+                    <div className="ticket-card__header">
+                      <div className="ticket-card__title-block">
+                        <div className="ticket-card__title-row">
+                          <h2>{ticket.title}</h2>
+                          <span className="ticket-card__date">
+                            {formatarData(ticket.createdAt)}
+                          </span>
+                        </div>
+
+                        <p className="ticket-card__meta">
+                          {ticket.user.name} • {ticket.user.email} •{" "}
+                          {ticket.category}
+                        </p>
                       </div>
 
-                      <p className="ticket-card__meta">
-                        {ticket.user.name} • {ticket.user.email} • {ticket.category}
-                      </p>
+                      <div className="ticket-card__badges">
+                        <span
+                          className={`tickets-priority-badge tickets-priority-badge--${ticket.priority.toLowerCase()}`}
+                        >
+                          {traduzirPrioridade(ticket.priority)}
+                        </span>
+
+                        <span
+                          className={`tickets-status-badge tickets-status-badge--${ticket.status.toLowerCase()}`}
+                        >
+                          {traduzirStatus(ticket.status)}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="ticket-card__badges">
-                      <span className={`dashboard-priority-badge ${ticket.priority.toLowerCase()}`}>
-                        {traduzirPrioridade(ticket.priority)}
-                      </span>
-                      <span className="pill neutral">{traduzirStatus(ticket.status)}</span>
-                    </div>
-                  </div>
+                    <p className="ticket-card__description">
+                      {ticket.description}
+                    </p>
 
-                  <p className="ticket-card__description">{ticket.description}</p>
+                    <div className="ticket-card__details">
+                      <div className="ticket-card__detail">
+                        <small>Status atual</small>
+                        <strong>{traduzirStatus(ticket.status)}</strong>
+                      </div>
 
-                  <div className="ticket-card__actions">
-                    {user?.role === "ADMIN" ? (
-                      <>
-                        <button
-                          className="small-button"
-                          disabled={activeStatusTicketId === ticket.id}
-                          onClick={() => handleStatus(ticket.id, "IN_PROGRESS")}
-                        >
-                          Iniciar
-                        </button>
+                      <div className="ticket-card__detail">
+                        <small>Prioridade</small>
+                        <strong>{traduzirPrioridade(ticket.priority)}</strong>
+                      </div>
 
-                        <button
-                          className="small-button"
-                          disabled={activeStatusTicketId === ticket.id}
-                          onClick={() => handleStatus(ticket.id, "WAITING_RESPONSE")}
-                        >
-                          Aguardar resposta
-                        </button>
-
-                        <button
-                          className="small-button"
-                          disabled={activeStatusTicketId === ticket.id}
-                          onClick={() => handleStatus(ticket.id, "RESOLVED")}
-                        >
-                          Resolver
-                        </button>
-
-                        <button
-                          className="small-button danger"
-                          disabled={activeStatusTicketId === ticket.id}
-                          onClick={() => handleStatus(ticket.id, "CLOSED")}
-                        >
-                          Fechar
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        className="small-button danger"
-                        disabled={activeStatusTicketId === ticket.id}
-                        onClick={() => handleStatus(ticket.id, "CLOSED")}
-                      >
-                        Fechar meu chamado
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="ticket-conversation">
-                    <div className="ticket-conversation__header">
-                      <span className="eyebrow">Conversa</span>
-                      <strong>
-                        {ticket.comments.length} {ticket.comments.length === 1 ? "mensagem" : "mensagens"}
-                      </strong>
+                      <div className="ticket-card__detail">
+                        <small>Comentários</small>
+                        <strong>{ticket.comments.length}</strong>
+                      </div>
                     </div>
 
-                    <div className="ticket-comments-list">
-                      {ticket.comments.length === 0 ? (
-                        <div className="ticket-comment ticket-comment--empty">
-                          <p>Ainda não há respostas neste chamado.</p>
-                        </div>
+                    <div className="ticket-card__actions">
+                      {user?.role === "ADMIN" ? (
+                        <>
+                          <button
+                            type="button"
+                            className="tickets-action-button"
+                            disabled={isBusy}
+                            onClick={() => handleStatusChange(ticket.id, "OPEN")}
+                          >
+                            {isBusy ? "Movendo..." : "Aberto"}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="tickets-action-button tickets-action-button--info"
+                            disabled={isBusy}
+                            onClick={() =>
+                              handleStatusChange(ticket.id, "IN_PROGRESS")
+                            }
+                          >
+                            {isBusy ? "Movendo..." : "Em andamento"}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="tickets-action-button"
+                            disabled={isBusy}
+                            onClick={() =>
+                              handleStatusChange(ticket.id, "WAITING_RESPONSE")
+                            }
+                          >
+                            {isBusy ? "Movendo..." : "Aguardar resposta"}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="tickets-action-button tickets-action-button--success"
+                            disabled={isBusy}
+                            onClick={() =>
+                              handleStatusChange(ticket.id, "RESOLVED")
+                            }
+                          >
+                            {isBusy ? "Movendo..." : "Resolver"}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="tickets-action-button tickets-action-button--ghost"
+                            disabled={isBusy}
+                            onClick={() =>
+                              handleStatusChange(ticket.id, "CLOSED")
+                            }
+                          >
+                            {isBusy ? "Movendo..." : "Fechar"}
+                          </button>
+                        </>
                       ) : (
-                        ticket.comments.map((comment) => (
-                          <div className="ticket-comment" key={comment.id}>
-                            <div className="ticket-comment__top">
-                              <strong>{comment.user.name}</strong>
-                              <span>{formatarData(comment.createdAt)}</span>
-                            </div>
-                            <p>{comment.message}</p>
-                          </div>
-                        ))
+                        <button
+                          type="button"
+                          className="tickets-action-button tickets-action-button--ghost"
+                          disabled={isBusy}
+                          onClick={() => handleStatusChange(ticket.id, "CLOSED")}
+                        >
+                          {isBusy ? "Fechando..." : "Fechar meu chamado"}
+                        </button>
                       )}
-                    </div>
 
-                    <div className="ticket-comment-form">
-                      <input
-                        placeholder="Escreva uma resposta"
-                        value={commentText[ticket.id] || ""}
-                        onChange={(e) =>
-                          setCommentText((prev) => ({
-                            ...prev,
-                            [ticket.id]: e.target.value,
-                          }))
-                        }
-                      />
                       <button
-                        className="small-button"
-                        disabled={activeCommentTicketId === ticket.id}
-                        onClick={() => handleComment(ticket.id)}
+                        type="button"
+                        className="tickets-action-button tickets-action-button--ghost"
+                        onClick={() => toggleExpanded(ticket.id)}
                       >
-                        {activeCommentTicketId === ticket.id ? "Enviando..." : "Enviar"}
+                        {isExpanded ? "Ocultar detalhes" : "Ver detalhes"}
                       </button>
                     </div>
-                  </div>
-                </article>
-              ))}
+
+                    {isExpanded ? (
+                      <div className="ticket-card__expanded">
+                        <div className="ticket-comments">
+                          <div className="ticket-comments__header">
+                            <strong>Histórico do chamado</strong>
+                            <span>
+                              {ticket.comments.length}{" "}
+                              {ticket.comments.length === 1
+                                ? "comentário"
+                                : "comentários"}
+                            </span>
+                          </div>
+
+                          {ticket.comments.length === 0 ? (
+                            <div className="ticket-comments__empty">
+                              Ainda não há comentários neste chamado.
+                            </div>
+                          ) : (
+                            <div className="ticket-comments__list">
+                              {ticket.comments.map((comment) => (
+                                <div
+                                  key={comment.id}
+                                  className="ticket-comment-card"
+                                >
+                                  <div className="ticket-comment-card__top">
+                                    <strong>{comment.user.name}</strong>
+                                    <span>{formatarData(comment.createdAt)}</span>
+                                  </div>
+                                  <p>{comment.message}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="ticket-comment-form">
+                          <label className="tickets-input-wrap">
+                            <span>Novo comentário</span>
+                            <textarea
+                              rows={4}
+                              value={commentDrafts[ticket.id] || ""}
+                              onChange={(event) =>
+                                setCommentDrafts((current) => ({
+                                  ...current,
+                                  [ticket.id]: event.target.value,
+                                }))
+                              }
+                              placeholder="Adicione atualização, diagnóstico ou orientação"
+                            />
+                          </label>
+
+                          <button
+                            type="button"
+                            className="tickets-primary-button"
+                            disabled={isCommenting}
+                            onClick={() => handleCommentSubmit(ticket.id)}
+                          >
+                            {isCommenting
+                              ? "Enviando comentário..."
+                              : "Adicionar comentário"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
-      </section>
-    </div>
+      </div>
+    </section>
   );
 }
