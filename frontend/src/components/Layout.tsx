@@ -8,8 +8,8 @@ export function Layout() {
   const navigate = useNavigate();
 
   function handleLogout() {
-    logout();
-    navigate("/", { replace: true });
+    logout("manual");
+    navigate("/login", { replace: true });
   }
 
   return (
@@ -21,7 +21,9 @@ export function Layout() {
           <BrandLogo compact subtitle="Control Center" />
         </div>
 
-        <p className="sidebar-copy">Central operacional para suporte, tarefas e gestão.</p>
+        <p className="sidebar-copy">
+          Central operacional para suporte, tarefas e gestão.
+        </p>
 
         <nav className="nav-links">
           <NavLink to="/app">Painel</NavLink>
