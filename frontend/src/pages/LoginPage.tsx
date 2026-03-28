@@ -1,13 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { BrandLogo } from "../components/BrandLogo";
 import { InteractiveBackground } from "../components/InteractiveBackground";
 
+type LocationState = {
+  from?: {
+    pathname?: string;
+  };
+};
+
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [form, setForm] = useState({
     email: "admin@wowhub.com",
@@ -16,6 +23,12 @@ export function LoginPage() {
 
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate("/app", { replace: true });
+    }
+  }, [isAuthenticated, loading, navigate]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,12 +42,39 @@ export function LoginPage() {
         password: form.password,
       });
 
-      navigate("/app");
+      const state = location.state as LocationState | null;
+      const redirectTo = state?.from?.pathname || "/app";
+
+      navigate(redirectTo, { replace: true });
     } catch (err: any) {
       setError(err?.response?.data?.message || "Falha ao entrar");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="auth-page">
+        <InteractiveBackground />
+        <div className="background-orb orb-one" />
+        <div className="background-orb orb-two" />
+        <div className="background-grid" />
+
+        <div className="auth-card">
+          <BrandLogo subtitle="Secure Access" />
+
+          <div>
+            <span className="eyebrow">Sessão protegida</span>
+            <h1>Verificando acesso</h1>
+            <p className="body-copy">
+              Estamos confirmando suas credenciais e preparando sua entrada no
+              WoWHUB.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -51,7 +91,8 @@ export function LoginPage() {
           <span className="eyebrow">Bem-vindo de volta</span>
           <h1>Acesse o WoWHUB</h1>
           <p className="body-copy">
-            Entre com sua conta para acessar a operação com segurança e estabilidade.
+            Entre com sua conta para acessar a operação com segurança e
+            estabilidade.
           </p>
         </div>
 
