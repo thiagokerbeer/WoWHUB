@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../services/api";
 import { DashboardData } from "../types";
 import {
+  Button,
   EmptyState,
   NoticeBanner,
   PageHero,
@@ -15,7 +16,7 @@ import "./DashboardPage.css";
 
 type NoticeState =
   | {
-      type: "error";
+      type: "success" | "error";
       title: string;
       message: string;
     }
@@ -41,22 +42,110 @@ function traduzirPrioridade(priority: string) {
     LOW: "Baixa",
     MEDIUM: "Média",
     HIGH: "Alta",
+    URGENT: "Urgente",
     CRITICAL: "Crítica",
   };
 
   return mapa[priority] || priority;
 }
 
-function traduzirAcao(action: string) {
-  const mapa: Record<string, string> = {
-    "Admin block": "Bloqueio administrativo",
-    "Admin unblock": "Desbloqueio administrativo",
-    "Admin temp ban": "Banimento temporário",
-    "Admin clear ban": "Remoção de banimento",
-    "Admin delete user": "Exclusão de usuário",
+function mapStatusTone(status: string) {
+  const mapa: Record<string, "success" | "warning" | "info" | "neutral"> = {
+    OPEN: "warning",
+    IN_PROGRESS: "info",
+    WAITING_RESPONSE: "neutral",
+    RESOLVED: "success",
+    CLOSED: "neutral",
+    TODO: "warning",
+    DOING: "info",
+    DONE: "success",
   };
 
-  return mapa[action] || action;
+  return mapa[status] || "neutral";
+}
+
+function mapPriorityTone(
+  priority: string
+): "low" | "medium" | "high" | "critical" | "neutral" {
+  const mapa: Record<
+    string,
+    "low" | "medium" | "high" | "critical" | "neutral"
+  > = {
+    LOW: "low",
+    MEDIUM: "medium",
+    HIGH: "high",
+    URGENT: "high",
+    CRITICAL: "critical",
+  };
+
+  return mapa[priority] || "neutral";
+}
+
+function definirSaudeOperacional(data: DashboardData) {
+  const cargaAberta = data.metrics.openTickets;
+  const execucao = data.metrics.tasksInProgress;
+
+  if (cargaAberta <= 4 && execucao <= 4) {
+    return {
+      rotulo: "Operação estável",
+      descricao:
+        "Fila controlada, ritmo consistente e ambiente pronto para absorver novas demandas.",
+      tone: "success" as const,
+    };
+  }
+
+  if (cargaAberta <= 8 && execucao <= 7) {
+    return {
+      rotulo: "Operação em atenção",
+      descricao:
+        "O volume está saudável, mas já pede acompanhamento mais próximo para não gerar atraso.",
+      tone: "warning" as const,
+    };
+  }
+
+  return {
+    rotulo: "Operação pressionada",
+    descricao:
+      "A fila cresceu e a execução está intensa. Prioridades e resposta rápida viram foco imediato.",
+    tone: "danger" as const,
+  };
+}
+
+function obterResumoAtividade(action: string) {
+  const acao = action.toLowerCase();
+
+  if (acao.includes("login")) {
+    return {
+      grupo: "Acesso",
+      tone: "info" as const,
+    };
+  }
+
+  if (acao.includes("account") || acao.includes("user")) {
+    return {
+      grupo: "Usuário",
+      tone: "neutral" as const,
+    };
+  }
+
+  if (acao.includes("ticket") || acao.includes("chamado")) {
+    return {
+      grupo: "Chamado",
+      tone: "warning" as const,
+    };
+  }
+
+  if (acao.includes("task") || acao.includes("tarefa")) {
+    return {
+      grupo: "Tarefa",
+      tone: "success" as const,
+    };
+  }
+
+  return {
+    grupo: "Sistema",
+    tone: "neutral" as const,
+  };
 }
 
 function formatarData(dateString?: string | null) {
@@ -75,90 +164,6 @@ function formatarData(dateString?: string | null) {
   } catch {
     return dateString;
   }
-}
-
-function buildErrorMessage(error: unknown, fallback: string) {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "response" in error &&
-    typeof (error as { response?: unknown }).response === "object"
-  ) {
-    const response = (error as { response?: { data?: { message?: string } } })
-      .response;
-    const message = response?.data?.message;
-
-    if (typeof message === "string" && message.trim()) {
-      return message;
-    }
-  }
-
-  return fallback;
-}
-
-function calcularSaude(
-  openTickets: number,
-  resolvedTickets: number,
-  tasksInProgress: number
-) {
-  if (openTickets === 0 && resolvedTickets === 0 && tasksInProgress === 0) {
-    return {
-      label: "Painel leve",
-      tone: "neutral" as const,
-      text: "Ainda não há volume operacional relevante carregado no dashboard.",
-    };
-  }
-
-  if (resolvedTickets >= openTickets && tasksInProgress <= resolvedTickets) {
-    return {
-      label: "Operação estável",
-      tone: "success" as const,
-      text: "Os resolvidos estão sustentando bem o fluxo atual.",
-    };
-  }
-
-  if (openTickets > resolvedTickets) {
-    return {
-      label: "Fila pressionada",
-      tone: "warning" as const,
-      text: "Há mais chamados abertos do que resolvidos no recorte atual.",
-    };
-  }
-
-  return {
-    label: "Ritmo ativo",
-    tone: "info" as const,
-    text: "O ambiente mostra boa movimentação de execução e atendimento.",
-  };
-}
-
-function mapStatusTone(status: string) {
-  const mapa: Record<string, "success" | "warning" | "info" | "neutral"> = {
-    OPEN: "warning",
-    IN_PROGRESS: "info",
-    WAITING_RESPONSE: "neutral",
-    RESOLVED: "success",
-    CLOSED: "neutral",
-    TODO: "warning",
-    DOING: "info",
-    DONE: "success",
-  };
-
-  return mapa[status] || "neutral";
-}
-
-function mapPriorityTone(priority: string) {
-  const mapa: Record<
-    string,
-    "low" | "medium" | "high" | "critical" | "neutral"
-  > = {
-    LOW: "low",
-    MEDIUM: "medium",
-    HIGH: "high",
-    CRITICAL: "critical",
-  };
-
-  return mapa[priority] || "neutral";
 }
 
 export function DashboardPage() {
@@ -183,11 +188,9 @@ export function DashboardPage() {
       console.error(error);
       setNotice({
         type: "error",
-        title: "Falha ao carregar dashboard",
-        message: buildErrorMessage(
-          error,
-          "Não foi possível buscar o painel operacional agora."
-        ),
+        title: "Falha ao carregar o painel",
+        message:
+          "Não foi possível buscar os dados do dashboard agora. Tente novamente em instantes.",
       });
     } finally {
       setLoading(false);
@@ -211,56 +214,104 @@ export function DashboardPage() {
     return () => window.clearTimeout(timeout);
   }, [notice]);
 
-  const health = useMemo(() => {
+  const saudeOperacional = useMemo(() => {
     if (!data) {
-      return {
-        label: "Carregando",
-        tone: "neutral" as const,
-        text: "Preparando leitura operacional.",
-      };
+      return null;
     }
 
-    return calcularSaude(
-      data.metrics.openTickets,
-      data.metrics.resolvedTickets,
-      data.metrics.tasksInProgress
-    );
+    return definirSaudeOperacional(data);
+  }, [data]);
+
+  const metricas = useMemo(() => {
+    if (!data) {
+      return null;
+    }
+
+    const totalChamadosMonitorados =
+      data.metrics.openTickets + data.metrics.resolvedTickets;
+
+    const taxaResolucao =
+      totalChamadosMonitorados > 0
+        ? Math.round(
+            (data.metrics.resolvedTickets / totalChamadosMonitorados) * 100
+          )
+        : 0;
+
+    return {
+      openTickets: data.metrics.openTickets,
+      resolvedTickets: data.metrics.resolvedTickets,
+      tasksInProgress: data.metrics.tasksInProgress,
+      projectsCount: data.metrics.projectsCount,
+      usersCount: data.metrics.usersCount,
+      resolutionRate: taxaResolucao,
+    };
+  }, [data]);
+
+  const visaoOperacional = useMemo(() => {
+    if (!data) {
+      return null;
+    }
+
+    const totalChamados =
+      data.metrics.openTickets + data.metrics.resolvedTickets;
+
+    const taxaResolucao =
+      totalChamados > 0
+        ? Math.round((data.metrics.resolvedTickets / totalChamados) * 100)
+        : 0;
+
+    const cargaPorUsuario =
+      data.metrics.usersCount > 0
+        ? (data.metrics.openTickets / data.metrics.usersCount).toFixed(1)
+        : "0.0";
+
+    const focoImediato =
+      data.metrics.openTickets > data.metrics.tasksInProgress
+        ? "Reduzir a fila de chamados e acelerar resposta da operação."
+        : "Sustentar a execução das tarefas em andamento sem perder ritmo de atendimento.";
+
+    const capacidadeTexto =
+      data.metrics.usersCount >= 6
+        ? "Equipe com boa cobertura para distribuir demanda."
+        : "Equipe enxuta, exigindo priorização mais disciplinada.";
+
+    return {
+      taxaResolucao,
+      cargaPorUsuario,
+      focoImediato,
+      capacidadeTexto,
+    };
   }, [data]);
 
   if (loading) {
     return (
       <section className="dashboard-page dashboard-page--loading">
         <SkeletonBlock className="dashboard-loading-hero" />
-
         <div className="dashboard-loading-grid">
           <SkeletonBlock className="dashboard-loading-card" />
           <SkeletonBlock className="dashboard-loading-card" />
           <SkeletonBlock className="dashboard-loading-card" />
           <SkeletonBlock className="dashboard-loading-card" />
         </div>
-
+        <SkeletonBlock className="dashboard-loading-panel" />
         <SkeletonBlock className="dashboard-loading-panel" />
         <SkeletonBlock className="dashboard-loading-panel" />
       </section>
     );
   }
 
-  if (!data) {
+  if (!data || !metricas || !visaoOperacional || !saudeOperacional) {
     return (
       <section className="dashboard-empty-state">
         <div className="dashboard-empty-state__card">
           <EmptyState
-            eyebrow="Dashboard indisponível"
-            title="Não foi possível carregar a central de comando"
-            description="O sistema não conseguiu montar a leitura operacional agora. Tente novamente para restaurar o painel."
+            eyebrow="Painel indisponível"
+            title="Não foi possível carregar o dashboard"
+            description="A leitura operacional não pôde ser montada agora. Atualize para tentar novamente."
             action={
-              <button
-                type="button"
-                className="dashboard-primary-button"
-                onClick={() => loadDashboard()}
-              >
+              <Button type="button" onClick={() => loadDashboard()}>
                 Tentar novamente
-              </button>
+              </Button>
             }
           />
         </div>
@@ -271,22 +322,26 @@ export function DashboardPage() {
   return (
     <section className="dashboard-page">
       <PageHero
-        eyebrow="WoWHUB Command Center"
-        title="Dashboard operacional"
-        description="Uma leitura clara do ambiente para tickets, tarefas, usuários, projetos e atividade recente, sem poeira de painel genérico."
-        chips={["Atendimento", "Execução", "Atividade recente"]}
-        sideEyebrow="Saúde do ambiente"
+        eyebrow="Central de comando WoWHUB"
+        title="Painel operacional"
+        description="Visão executiva da operação, com leitura rápida de carga, execução e estabilidade do ambiente."
+        chips={[
+          "Suporte em andamento",
+          "Rotina interna ativa",
+          "Ambiente SaaS operacional",
+        ]}
+        sideEyebrow="Saúde operacional"
         sideBadge={
           <StatusBadge
-            label={refreshing ? "Atualizando..." : health.label}
-            tone={health.tone}
+            label={refreshing ? "Atualizando..." : saudeOperacional.rotulo}
+            tone={refreshing ? "info" : saudeOperacional.tone}
           />
         }
-        sideDescription={health.text}
+        sideDescription={saudeOperacional.descricao}
         miniStats={[
-          { label: "Usuários", value: data.metrics.usersCount },
-          { label: "Projetos", value: data.metrics.projectsCount },
-          { label: "Em execução", value: data.metrics.tasksInProgress },
+          { label: "Equipe visível", value: metricas.usersCount },
+          { label: "Projetos ativos", value: metricas.projectsCount },
+          { label: "Fila aberta", value: metricas.openTickets },
         ]}
       />
 
@@ -302,55 +357,97 @@ export function DashboardPage() {
       <section className="dashboard-stats-grid">
         <StatCard
           label="Chamados abertos"
-          value={data.metrics.openTickets}
-          description="Volume de solicitações ainda pedindo resposta da operação."
+          value={metricas.openTickets}
+          description="Demandas que ainda exigem atenção direta da operação."
         />
-
         <StatCard
           label="Chamados resolvidos"
-          value={data.metrics.resolvedTickets}
-          description="Itens concluídos dentro do fluxo de suporte."
+          value={metricas.resolvedTickets}
+          description={`${metricas.resolutionRate}% de resolução no painel monitorado.`}
         />
-
         <StatCard
           label="Tarefas em andamento"
-          value={data.metrics.tasksInProgress}
-          description="Execução ativa concentrada na trilha operacional."
+          value={metricas.tasksInProgress}
+          description="Execução ativa dentro dos projetos e rotinas internas."
         />
-
         <StatCard
           label="Projetos ativos"
-          value={data.metrics.projectsCount}
-          description="Estruturas vivas sustentando o ambiente SaaS."
+          value={metricas.projectsCount}
+          description={`${metricas.usersCount} usuários visíveis no ambiente.`}
         />
       </section>
 
-      <section className="dashboard-panel-grid">
+      <section className="dashboard-summary-grid">
         <PanelCard
-          eyebrow="Atendimento recente"
-          title="Chamados recentes"
+          eyebrow="Visão operacional"
+          title="Leitura executiva do ambiente"
+          subtitle="Um resumo direto da carga atual, capacidade visível e foco imediato da operação."
           action={
-            <button
+            <Button
               type="button"
-              className="dashboard-ghost-button"
+              variant="ghost"
               onClick={() => loadDashboard({ silent: true })}
             >
               Atualizar painel
-            </button>
+            </Button>
           }
         >
-          {data.tickets.length === 0 ? (
-            <div className="dashboard-empty-block">
-              <EmptyState
-                title="Nenhum chamado recente"
-                description="Os próximos tickets criados vão aparecer aqui."
-              />
+          <div className="dashboard-summary-metrics">
+            <div className="dashboard-summary-metric">
+              <span>Foco imediato</span>
+              <strong>{visaoOperacional.focoImediato}</strong>
+              <p>
+                A relação entre chamados abertos e tarefas em execução indica
+                onde a atenção precisa estar agora.
+              </p>
             </div>
+
+            <div className="dashboard-summary-metric">
+              <span>Taxa de resolução</span>
+              <strong>{visaoOperacional.taxaResolucao}%</strong>
+              <p>
+                Percentual de chamados resolvidos dentro do volume monitorado no
+                painel.
+              </p>
+            </div>
+
+            <div className="dashboard-summary-metric">
+              <span>Carga por usuário</span>
+              <strong>{visaoOperacional.cargaPorUsuario}</strong>
+              <p>
+                Média de chamados abertos por usuário visível no ambiente
+                operacional.
+              </p>
+            </div>
+
+            <div className="dashboard-summary-metric">
+              <span>Capacidade atual</span>
+              <strong>{metricas.usersCount} usuários</strong>
+              <p>{visaoOperacional.capacidadeTexto}</p>
+            </div>
+          </div>
+        </PanelCard>
+      </section>
+
+      <section className="dashboard-feed-grid">
+        <PanelCard
+          eyebrow="Fila recente"
+          title="Chamados recentes"
+          subtitle={`${data.tickets.length} ${
+            data.tickets.length === 1 ? "item" : "itens"
+          } monitorados no painel.`}
+          stacked
+        >
+          {data.tickets.length === 0 ? (
+            <EmptyState
+              title="Sem chamados recentes"
+              description="Os próximos chamados visíveis no ambiente aparecerão aqui."
+            />
           ) : (
-            <div className="dashboard-ticket-list">
+            <div className="dashboard-feed-list">
               {data.tickets.map((ticket) => (
-                <article key={ticket.id} className="dashboard-ticket-card">
-                  <div className="dashboard-ticket-card__top">
+                <article key={ticket.id} className="dashboard-feed-card">
+                  <div className="dashboard-feed-card__top">
                     <div>
                       <h3>{ticket.title}</h3>
                       <p>
@@ -358,12 +455,11 @@ export function DashboardPage() {
                       </p>
                     </div>
 
-                    <div className="dashboard-ticket-card__badges">
+                    <div className="dashboard-feed-card__badges">
                       <PriorityBadge
                         label={traduzirPrioridade(ticket.priority)}
                         tone={mapPriorityTone(ticket.priority)}
                       />
-
                       <StatusBadge
                         label={traduzirStatus(ticket.status)}
                         tone={mapStatusTone(ticket.status)}
@@ -371,7 +467,7 @@ export function DashboardPage() {
                     </div>
                   </div>
 
-                  <div className="dashboard-ticket-card__footer">
+                  <div className="dashboard-feed-card__meta">
                     <span>{formatarData(ticket.createdAt)}</span>
                   </div>
                 </article>
@@ -380,19 +476,24 @@ export function DashboardPage() {
           )}
         </PanelCard>
 
-        <PanelCard eyebrow="Execução recente" title="Tarefas recentes">
+        <PanelCard
+          eyebrow="Execução recente"
+          title="Tarefas recentes"
+          subtitle={`${data.tasks.length} ${
+            data.tasks.length === 1 ? "item" : "itens"
+          } em leitura rápida.`}
+          stacked
+        >
           {data.tasks.length === 0 ? (
-            <div className="dashboard-empty-block">
-              <EmptyState
-                title="Nenhuma tarefa recente"
-                description="As próximas tarefas criadas vão alimentar esta coluna."
-              />
-            </div>
+            <EmptyState
+              title="Sem tarefas recentes"
+              description="As próximas tarefas visíveis no dashboard aparecerão aqui."
+            />
           ) : (
-            <div className="dashboard-task-list">
+            <div className="dashboard-feed-list">
               {data.tasks.map((task) => (
-                <article key={task.id} className="dashboard-task-card">
-                  <div className="dashboard-task-card__top">
+                <article key={task.id} className="dashboard-feed-card">
+                  <div className="dashboard-feed-card__top">
                     <div>
                       <h3>{task.title}</h3>
                       <p>
@@ -401,10 +502,12 @@ export function DashboardPage() {
                       </p>
                     </div>
 
-                    <StatusBadge
-                      label={traduzirStatus(task.status)}
-                      tone={mapStatusTone(task.status)}
-                    />
+                    <div className="dashboard-feed-card__badges">
+                      <StatusBadge
+                        label={traduzirStatus(task.status)}
+                        tone={mapStatusTone(task.status)}
+                      />
+                    </div>
                   </div>
                 </article>
               ))}
@@ -413,31 +516,51 @@ export function DashboardPage() {
         </PanelCard>
       </section>
 
-      <PanelCard eyebrow="Atividade do ambiente" title="Fluxo recente de atividade">
+      <PanelCard
+        eyebrow="Fluxo recente"
+        title="Atividade da operação"
+        subtitle="Leitura rápida do que foi movimentado no ambiente nas ações mais recentes."
+        stacked
+      >
         {data.recentActivity.length === 0 ? (
-          <div className="dashboard-empty-block">
-            <EmptyState
-              title="Nenhuma atividade recente"
-              description="As próximas ações operacionais vão aparecer aqui."
-            />
-          </div>
+          <EmptyState
+            title="Sem atividade recente"
+            description="As próximas ações relevantes da operação aparecerão aqui."
+          />
         ) : (
           <div className="dashboard-activity-list">
-            {data.recentActivity.map((activity) => (
-              <div key={activity.id} className="dashboard-activity-item">
-                <div className="dashboard-activity-item__line" />
-                <div className="dashboard-activity-item__content">
-                  <strong>{traduzirAcao(activity.action)}</strong>
-                  <p>{activity.details}</p>
-                  <span>
-                    {activity.user.name} • {formatarData(activity.createdAt)}
-                  </span>
-                </div>
-              </div>
-            ))}
+            {data.recentActivity.map((activity) => {
+              const resumo = obterResumoAtividade(activity.action);
+
+              return (
+                <article
+                  key={activity.id}
+                  className="dashboard-activity-item"
+                >
+                  <div className="dashboard-activity-item__top">
+                    <div className="dashboard-activity-item__badges">
+                      <StatusBadge
+                        label={resumo.grupo}
+                        tone={resumo.tone}
+                      />
+                    </div>
+
+                    <span className="dashboard-activity-item__date">
+                      {formatarData(activity.createdAt)}
+                    </span>
+                  </div>
+
+                  <strong>{activity.user.name}</strong>
+                  <p>{activity.action}</p>
+                  <small>{activity.details}</small>
+                </article>
+              );
+            })}
           </div>
         )}
       </PanelCard>
     </section>
   );
 }
+
+export default DashboardPage;
