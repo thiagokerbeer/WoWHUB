@@ -16,7 +16,7 @@ import "./DashboardPage.css";
 
 type NoticeState =
   | {
-      type: "success" | "error";
+      type: "error";
       title: string;
       message: string;
     }
@@ -42,110 +42,22 @@ function traduzirPrioridade(priority: string) {
     LOW: "Baixa",
     MEDIUM: "Média",
     HIGH: "Alta",
-    URGENT: "Urgente",
     CRITICAL: "Crítica",
   };
 
   return mapa[priority] || priority;
 }
 
-function mapStatusTone(status: string) {
-  const mapa: Record<string, "success" | "warning" | "info" | "neutral"> = {
-    OPEN: "warning",
-    IN_PROGRESS: "info",
-    WAITING_RESPONSE: "neutral",
-    RESOLVED: "success",
-    CLOSED: "neutral",
-    TODO: "warning",
-    DOING: "info",
-    DONE: "success",
+function traduzirAcao(action: string) {
+  const mapa: Record<string, string> = {
+    "Admin block": "Bloqueio administrativo",
+    "Admin unblock": "Desbloqueio administrativo",
+    "Admin temp ban": "Banimento temporário",
+    "Admin clear ban": "Remoção de banimento",
+    "Admin delete user": "Exclusão de usuário",
   };
 
-  return mapa[status] || "neutral";
-}
-
-function mapPriorityTone(
-  priority: string
-): "low" | "medium" | "high" | "critical" | "neutral" {
-  const mapa: Record<
-    string,
-    "low" | "medium" | "high" | "critical" | "neutral"
-  > = {
-    LOW: "low",
-    MEDIUM: "medium",
-    HIGH: "high",
-    URGENT: "high",
-    CRITICAL: "critical",
-  };
-
-  return mapa[priority] || "neutral";
-}
-
-function definirSaudeOperacional(data: DashboardData) {
-  const cargaAberta = data.metrics.openTickets;
-  const execucao = data.metrics.tasksInProgress;
-
-  if (cargaAberta <= 4 && execucao <= 4) {
-    return {
-      rotulo: "Operação estável",
-      descricao:
-        "Fila controlada, ritmo consistente e ambiente pronto para absorver novas demandas.",
-      tone: "success" as const,
-    };
-  }
-
-  if (cargaAberta <= 8 && execucao <= 7) {
-    return {
-      rotulo: "Operação em atenção",
-      descricao:
-        "O volume está saudável, mas já pede acompanhamento mais próximo para não gerar atraso.",
-      tone: "warning" as const,
-    };
-  }
-
-  return {
-    rotulo: "Operação pressionada",
-    descricao:
-      "A fila cresceu e a execução está intensa. Prioridades e resposta rápida viram foco imediato.",
-    tone: "danger" as const,
-  };
-}
-
-function obterResumoAtividade(action: string) {
-  const acao = action.toLowerCase();
-
-  if (acao.includes("login")) {
-    return {
-      grupo: "Acesso",
-      tone: "info" as const,
-    };
-  }
-
-  if (acao.includes("account") || acao.includes("user")) {
-    return {
-      grupo: "Usuário",
-      tone: "neutral" as const,
-    };
-  }
-
-  if (acao.includes("ticket") || acao.includes("chamado")) {
-    return {
-      grupo: "Chamado",
-      tone: "warning" as const,
-    };
-  }
-
-  if (acao.includes("task") || acao.includes("tarefa")) {
-    return {
-      grupo: "Tarefa",
-      tone: "success" as const,
-    };
-  }
-
-  return {
-    grupo: "Sistema",
-    tone: "neutral" as const,
-  };
+  return mapa[action] || action;
 }
 
 function formatarData(dateString?: string | null) {
@@ -164,6 +76,90 @@ function formatarData(dateString?: string | null) {
   } catch {
     return dateString;
   }
+}
+
+function buildErrorMessage(error: unknown, fallback: string) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof (error as { response?: unknown }).response === "object"
+  ) {
+    const response = (error as { response?: { data?: { message?: string } } })
+      .response;
+    const message = response?.data?.message;
+
+    if (typeof message === "string" && message.trim()) {
+      return message;
+    }
+  }
+
+  return fallback;
+}
+
+function calcularSaude(
+  openTickets: number,
+  resolvedTickets: number,
+  tasksInProgress: number
+) {
+  if (openTickets === 0 && resolvedTickets === 0 && tasksInProgress === 0) {
+    return {
+      label: "Painel leve",
+      tone: "neutral" as const,
+      text: "Ainda não há volume operacional relevante carregado no dashboard.",
+    };
+  }
+
+  if (resolvedTickets >= openTickets && tasksInProgress <= resolvedTickets) {
+    return {
+      label: "Operação estável",
+      tone: "success" as const,
+      text: "Os resolvidos estão sustentando bem o fluxo atual.",
+    };
+  }
+
+  if (openTickets > resolvedTickets) {
+    return {
+      label: "Fila pressionada",
+      tone: "warning" as const,
+      text: "Há mais chamados abertos do que resolvidos no recorte atual.",
+    };
+  }
+
+  return {
+    label: "Ritmo ativo",
+    tone: "info" as const,
+    text: "O ambiente mostra boa movimentação de execução e atendimento.",
+  };
+}
+
+function mapStatusTone(status: string) {
+  const mapa: Record<string, "success" | "warning" | "info" | "neutral"> = {
+    OPEN: "warning",
+    IN_PROGRESS: "info",
+    WAITING_RESPONSE: "neutral",
+    RESOLVED: "success",
+    CLOSED: "neutral",
+    TODO: "warning",
+    DOING: "info",
+    DONE: "success",
+  };
+
+  return mapa[status] || "neutral";
+}
+
+function mapPriorityTone(priority: string) {
+  const mapa: Record<
+    string,
+    "low" | "medium" | "high" | "critical" | "neutral"
+  > = {
+    LOW: "low",
+    MEDIUM: "medium",
+    HIGH: "high",
+    CRITICAL: "critical",
+  };
+
+  return mapa[priority] || "neutral";
 }
 
 export function DashboardPage() {
@@ -188,9 +184,11 @@ export function DashboardPage() {
       console.error(error);
       setNotice({
         type: "error",
-        title: "Falha ao carregar o painel",
-        message:
-          "Não foi possível buscar os dados do dashboard agora. Tente novamente em instantes.",
+        title: "Falha ao carregar dashboard",
+        message: buildErrorMessage(
+          error,
+          "Não foi possível buscar o painel operacional agora."
+        ),
       });
     } finally {
       setLoading(false);
@@ -214,73 +212,34 @@ export function DashboardPage() {
     return () => window.clearTimeout(timeout);
   }, [notice]);
 
-  const saudeOperacional = useMemo(() => {
+  const health = useMemo(() => {
     if (!data) {
-      return null;
+      return {
+        label: "Carregando",
+        tone: "neutral" as const,
+        text: "Preparando leitura operacional.",
+      };
     }
 
-    return definirSaudeOperacional(data);
+    return calcularSaude(
+      data.metrics.openTickets,
+      data.metrics.resolvedTickets,
+      data.metrics.tasksInProgress
+    );
   }, [data]);
 
-  const metricas = useMemo(() => {
+  const taxaResolucao = useMemo(() => {
     if (!data) {
-      return null;
+      return 0;
     }
 
-    const totalChamadosMonitorados =
-      data.metrics.openTickets + data.metrics.resolvedTickets;
+    const total = data.metrics.openTickets + data.metrics.resolvedTickets;
 
-    const taxaResolucao =
-      totalChamadosMonitorados > 0
-        ? Math.round(
-            (data.metrics.resolvedTickets / totalChamadosMonitorados) * 100
-          )
-        : 0;
-
-    return {
-      openTickets: data.metrics.openTickets,
-      resolvedTickets: data.metrics.resolvedTickets,
-      tasksInProgress: data.metrics.tasksInProgress,
-      projectsCount: data.metrics.projectsCount,
-      usersCount: data.metrics.usersCount,
-      resolutionRate: taxaResolucao,
-    };
-  }, [data]);
-
-  const visaoOperacional = useMemo(() => {
-    if (!data) {
-      return null;
+    if (total === 0) {
+      return 0;
     }
 
-    const totalChamados =
-      data.metrics.openTickets + data.metrics.resolvedTickets;
-
-    const taxaResolucao =
-      totalChamados > 0
-        ? Math.round((data.metrics.resolvedTickets / totalChamados) * 100)
-        : 0;
-
-    const cargaPorUsuario =
-      data.metrics.usersCount > 0
-        ? (data.metrics.openTickets / data.metrics.usersCount).toFixed(1)
-        : "0.0";
-
-    const focoImediato =
-      data.metrics.openTickets > data.metrics.tasksInProgress
-        ? "Reduzir a fila de chamados e acelerar resposta da operação."
-        : "Sustentar a execução das tarefas em andamento sem perder ritmo de atendimento.";
-
-    const capacidadeTexto =
-      data.metrics.usersCount >= 6
-        ? "Equipe com boa cobertura para distribuir demanda."
-        : "Equipe enxuta, exigindo priorização mais disciplinada.";
-
-    return {
-      taxaResolucao,
-      cargaPorUsuario,
-      focoImediato,
-      capacidadeTexto,
-    };
+    return Math.round((data.metrics.resolvedTickets / total) * 100);
   }, [data]);
 
   if (loading) {
@@ -300,7 +259,7 @@ export function DashboardPage() {
     );
   }
 
-  if (!data || !metricas || !visaoOperacional || !saudeOperacional) {
+  if (!data) {
     return (
       <section className="dashboard-empty-state">
         <div className="dashboard-empty-state__card">
@@ -322,26 +281,22 @@ export function DashboardPage() {
   return (
     <section className="dashboard-page">
       <PageHero
-        eyebrow="Central de comando WoWHUB"
+        eyebrow="Central de comando"
         title="Painel operacional"
-        description="Visão executiva da operação, com leitura rápida de carga, execução e estabilidade do ambiente."
-        chips={[
-          "Suporte em andamento",
-          "Rotina interna ativa",
-          "Ambiente SaaS operacional",
-        ]}
-        sideEyebrow="Saúde operacional"
+        description="Acompanhe o recorte atual da operação com leitura rápida de chamados, tarefas, usuários e projetos."
+        chips={["Visão executiva", "Fluxo monitorado", "Operação em tempo real"]}
+        sideEyebrow="Saúde do ambiente"
         sideBadge={
           <StatusBadge
-            label={refreshing ? "Atualizando..." : saudeOperacional.rotulo}
-            tone={refreshing ? "info" : saudeOperacional.tone}
+            label={refreshing ? "Atualizando..." : health.label}
+            tone={health.tone}
           />
         }
-        sideDescription={saudeOperacional.descricao}
+        sideDescription={health.text}
         miniStats={[
-          { label: "Equipe visível", value: metricas.usersCount },
-          { label: "Projetos ativos", value: metricas.projectsCount },
-          { label: "Fila aberta", value: metricas.openTickets },
+          { label: "Usuários", value: data.metrics.usersCount },
+          { label: "Projetos", value: data.metrics.projectsCount },
+          { label: "Em execução", value: data.metrics.tasksInProgress },
         ]}
       />
 
@@ -357,31 +312,31 @@ export function DashboardPage() {
       <section className="dashboard-stats-grid">
         <StatCard
           label="Chamados abertos"
-          value={metricas.openTickets}
-          description="Demandas que ainda exigem atenção direta da operação."
+          value={data.metrics.openTickets}
+          description="Demandas que ainda pedem ação direta da operação."
         />
         <StatCard
           label="Chamados resolvidos"
-          value={metricas.resolvedTickets}
-          description={`${metricas.resolutionRate}% de resolução no painel monitorado.`}
+          value={data.metrics.resolvedTickets}
+          description="Volume já estabilizado dentro do recorte atual."
         />
         <StatCard
           label="Tarefas em andamento"
-          value={metricas.tasksInProgress}
-          description="Execução ativa dentro dos projetos e rotinas internas."
+          value={data.metrics.tasksInProgress}
+          description="Execução ativa nas rotinas e projetos do ambiente."
         />
         <StatCard
-          label="Projetos ativos"
-          value={metricas.projectsCount}
-          description={`${metricas.usersCount} usuários visíveis no ambiente.`}
+          label="Taxa de resolução"
+          value={`${taxaResolucao}%`}
+          description="Proporção resolvida entre chamados abertos e concluídos."
         />
       </section>
 
       <section className="dashboard-summary-grid">
         <PanelCard
-          eyebrow="Visão operacional"
-          title="Leitura executiva do ambiente"
-          subtitle="Um resumo direto da carga atual, capacidade visível e foco imediato da operação."
+          eyebrow="Leitura operacional"
+          title="Visão consolidada"
+          subtitle="Um recorte direto do que está vivo agora no WoWHUB."
           action={
             <Button
               type="button"
@@ -394,36 +349,29 @@ export function DashboardPage() {
         >
           <div className="dashboard-summary-metrics">
             <div className="dashboard-summary-metric">
-              <span>Foco imediato</span>
-              <strong>{visaoOperacional.focoImediato}</strong>
-              <p>
-                A relação entre chamados abertos e tarefas em execução indica
-                onde a atenção precisa estar agora.
-              </p>
+              <span>Chamados abertos</span>
+              <strong>{data.metrics.openTickets}</strong>
+              <p>Itens que ainda dependem de atendimento ou avanço operacional.</p>
             </div>
 
             <div className="dashboard-summary-metric">
-              <span>Taxa de resolução</span>
-              <strong>{visaoOperacional.taxaResolucao}%</strong>
-              <p>
-                Percentual de chamados resolvidos dentro do volume monitorado no
-                painel.
-              </p>
+              <span>Chamados resolvidos</span>
+              <strong>{data.metrics.resolvedTickets}</strong>
+              <p>Entregas já devolvidas ao fluxo com situação estabilizada.</p>
             </div>
 
             <div className="dashboard-summary-metric">
-              <span>Carga por usuário</span>
-              <strong>{visaoOperacional.cargaPorUsuario}</strong>
-              <p>
-                Média de chamados abertos por usuário visível no ambiente
-                operacional.
-              </p>
+              <span>Tarefas em andamento</span>
+              <strong>{data.metrics.tasksInProgress}</strong>
+              <p>Execuções correndo dentro do ambiente neste momento.</p>
             </div>
 
             <div className="dashboard-summary-metric">
-              <span>Capacidade atual</span>
-              <strong>{metricas.usersCount} usuários</strong>
-              <p>{visaoOperacional.capacidadeTexto}</p>
+              <span>Base ativa</span>
+              <strong>
+                {data.metrics.usersCount} usuários • {data.metrics.projectsCount} projetos
+              </strong>
+              <p>Escopo atual visível para rotina, suporte e gestão.</p>
             </div>
           </div>
         </PanelCard>
@@ -431,17 +379,15 @@ export function DashboardPage() {
 
       <section className="dashboard-feed-grid">
         <PanelCard
-          eyebrow="Fila recente"
-          title="Chamados recentes"
-          subtitle={`${data.tickets.length} ${
-            data.tickets.length === 1 ? "item" : "itens"
-          } monitorados no painel.`}
+          eyebrow="Chamados recentes"
+          title="Fila de suporte"
+          subtitle="Últimos itens que entraram ou seguem visíveis no painel."
           stacked
         >
           {data.tickets.length === 0 ? (
             <EmptyState
               title="Sem chamados recentes"
-              description="Os próximos chamados visíveis no ambiente aparecerão aqui."
+              description="Os próximos chamados monitorados aparecerão aqui."
             />
           ) : (
             <div className="dashboard-feed-list">
@@ -477,17 +423,15 @@ export function DashboardPage() {
         </PanelCard>
 
         <PanelCard
-          eyebrow="Execução recente"
-          title="Tarefas recentes"
-          subtitle={`${data.tasks.length} ${
-            data.tasks.length === 1 ? "item" : "itens"
-          } em leitura rápida.`}
+          eyebrow="Tarefas recentes"
+          title="Execução em andamento"
+          subtitle="Atividades mais recentes visíveis na operação."
           stacked
         >
           {data.tasks.length === 0 ? (
             <EmptyState
               title="Sem tarefas recentes"
-              description="As próximas tarefas visíveis no dashboard aparecerão aqui."
+              description="As próximas tarefas monitoradas aparecerão aqui."
             />
           ) : (
             <div className="dashboard-feed-list">
@@ -517,45 +461,38 @@ export function DashboardPage() {
       </section>
 
       <PanelCard
-        eyebrow="Fluxo recente"
-        title="Atividade da operação"
-        subtitle="Leitura rápida do que foi movimentado no ambiente nas ações mais recentes."
+        eyebrow="Atividade recente"
+        title="Fluxo da operação"
+        subtitle="Ações administrativas e movimentações recentes do ambiente."
         stacked
       >
         {data.recentActivity.length === 0 ? (
           <EmptyState
             title="Sem atividade recente"
-            description="As próximas ações relevantes da operação aparecerão aqui."
+            description="As próximas ações relevantes aparecerão aqui."
           />
         ) : (
           <div className="dashboard-activity-list">
-            {data.recentActivity.map((activity) => {
-              const resumo = obterResumoAtividade(activity.action);
-
-              return (
-                <article
-                  key={activity.id}
-                  className="dashboard-activity-item"
-                >
-                  <div className="dashboard-activity-item__top">
-                    <div className="dashboard-activity-item__badges">
-                      <StatusBadge
-                        label={resumo.grupo}
-                        tone={resumo.tone}
-                      />
-                    </div>
-
-                    <span className="dashboard-activity-item__date">
-                      {formatarData(activity.createdAt)}
-                    </span>
+            {data.recentActivity.map((activity) => (
+              <article key={activity.id} className="dashboard-activity-item">
+                <div className="dashboard-activity-item__top">
+                  <div className="dashboard-activity-item__badges">
+                    <StatusBadge
+                      label={traduzirAcao(activity.action)}
+                      tone="neutral"
+                    />
                   </div>
 
-                  <strong>{activity.user.name}</strong>
-                  <p>{activity.action}</p>
-                  <small>{activity.details}</small>
-                </article>
-              );
-            })}
+                  <span className="dashboard-activity-item__date">
+                    {formatarData(activity.createdAt)}
+                  </span>
+                </div>
+
+                <strong>{activity.user.name}</strong>
+                <p>{activity.details}</p>
+                <small>{activity.action}</small>
+              </article>
+            ))}
           </div>
         )}
       </PanelCard>
