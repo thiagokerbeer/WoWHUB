@@ -3,6 +3,14 @@ import { api } from "../services/api";
 import { DashboardData } from "../types";
 import "./DashboardPage.css";
 
+type NoticeState =
+  | {
+      type: "error";
+      title: string;
+      message: string;
+    }
+  | null;
+
 function traduzirStatus(status: string) {
   const mapa: Record<string, string> = {
     OPEN: "Aberto",
@@ -23,382 +31,420 @@ function traduzirPrioridade(priority: string) {
     LOW: "Baixa",
     MEDIUM: "Média",
     HIGH: "Alta",
-    URGENT: "Urgente",
     CRITICAL: "Crítica",
   };
 
   return mapa[priority] || priority;
 }
 
-function definirSaudeOperacional(data: DashboardData) {
-  const cargaAberta = data.metrics.openTickets;
-  const execucao = data.metrics.tasksInProgress;
-
-  if (cargaAberta <= 4 && execucao <= 4) {
-    return {
-      rotulo: "Operação estável",
-      descricao: "Fila controlada, ritmo consistente e ambiente pronto para absorver novas demandas.",
-      tom: "is-stable",
-    };
-  }
-
-  if (cargaAberta <= 8 && execucao <= 7) {
-    return {
-      rotulo: "Operação em atenção",
-      descricao: "O volume está saudável, mas já pede acompanhamento mais próximo para não gerar atraso.",
-      tom: "is-attention",
-    };
-  }
-
-  return {
-    rotulo: "Operação pressionada",
-    descricao: "A fila cresceu e a execução está intensa. Prioridades e resposta rápida viram foco imediato.",
-    tom: "is-critical",
+function traduzirAcao(action: string) {
+  const mapa: Record<string, string> = {
+    "Admin block": "Bloqueio administrativo",
+    "Admin unblock": "Desbloqueio administrativo",
+    "Admin temp ban": "Banimento temporário",
+    "Admin clear ban": "Remoção de banimento",
+    "Admin delete user": "Exclusão de usuário",
   };
+
+  return mapa[action] || action;
 }
 
-function obterResumoAtividade(action: string) {
-  const acao = action.toLowerCase();
+function formatarData(dateString?: string | null) {
+  if (!dateString) {
+    return "Sem data";
+  }
 
-  if (acao.includes("login")) {
+  try {
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(dateString));
+  } catch {
+    return dateString;
+  }
+}
+
+function buildErrorMessage(error: unknown, fallback: string) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof (error as { response?: unknown }).response === "object"
+  ) {
+    const response = (error as { response?: { data?: { message?: string } } })
+      .response;
+    const message = response?.data?.message;
+
+    if (typeof message === "string" && message.trim()) {
+      return message;
+    }
+  }
+
+  return fallback;
+}
+
+function calcularSaude(
+  openTickets: number,
+  resolvedTickets: number,
+  tasksInProgress: number
+) {
+  if (openTickets === 0 && resolvedTickets === 0 && tasksInProgress === 0) {
     return {
-      grupo: "Acesso",
-      tom: "is-cyan",
+      label: "Painel leve",
+      tone: "neutral",
+      text: "Ainda não há volume operacional relevante carregado no dashboard.",
     };
   }
 
-  if (acao.includes("account") || acao.includes("user")) {
+  if (resolvedTickets >= openTickets && tasksInProgress <= resolvedTickets) {
     return {
-      grupo: "Usuário",
-      tom: "is-violet",
+      label: "Operação estável",
+      tone: "success",
+      text: "Os resolvidos estão sustentando bem o fluxo atual.",
     };
   }
 
-  if (acao.includes("ticket") || acao.includes("chamado")) {
+  if (openTickets > resolvedTickets) {
     return {
-      grupo: "Chamado",
-      tom: "is-amber",
-    };
-  }
-
-  if (acao.includes("task") || acao.includes("tarefa")) {
-    return {
-      grupo: "Tarefa",
-      tom: "is-emerald",
+      label: "Fila pressionada",
+      tone: "warning",
+      text: "Há mais chamados abertos do que resolvidos no recorte atual.",
     };
   }
 
   return {
-    grupo: "Sistema",
-    tom: "is-neutral",
+    label: "Ritmo ativo",
+    tone: "info",
+    text: "O ambiente mostra boa movimentação de execução e atendimento.",
   };
 }
 
 export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [notice, setNotice] = useState<NoticeState>(null);
+
+  async function loadDashboard(options?: { silent?: boolean }) {
+    const silent = options?.silent ?? false;
+
+    try {
+      if (silent) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      const response = await api.get<DashboardData>("/dashboard");
+      setData(response.data);
+    } catch (error) {
+      console.error(error);
+      setNotice({
+        type: "error",
+        title: "Falha ao carregar dashboard",
+        message: buildErrorMessage(
+          error,
+          "Não foi possível buscar o painel operacional agora."
+        ),
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
 
   useEffect(() => {
-    api.get<DashboardData>("/dashboard").then((response) => setData(response.data));
+    loadDashboard();
   }, []);
 
-  const saudeOperacional = useMemo(() => {
-    if (!data) {
-      return null;
+  useEffect(() => {
+    if (!notice) {
+      return;
     }
 
-    return definirSaudeOperacional(data);
-  }, [data]);
+    const timeout = window.setTimeout(() => {
+      setNotice(null);
+    }, 4500);
 
-  const metricas = useMemo(() => {
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
+
+  const health = useMemo(() => {
     if (!data) {
-      return [];
+      return {
+        label: "Carregando",
+        tone: "neutral",
+        text: "Preparando leitura operacional.",
+      };
     }
 
-    const totalChamadosMonitorados = data.metrics.openTickets + data.metrics.resolvedTickets;
-    const taxaResolucao =
-      totalChamadosMonitorados > 0
-        ? Math.round((data.metrics.resolvedTickets / totalChamadosMonitorados) * 100)
-        : 0;
-
-    return [
-      {
-        titulo: "Chamados abertos",
-        valor: data.metrics.openTickets,
-        apoio: "Demandas que ainda exigem atenção direta da operação.",
-        destaque: data.metrics.openTickets <= 4 ? "Fluxo controlado" : "Fila exigindo prioridade",
-        tom: "is-cyan",
-      },
-      {
-        titulo: "Chamados resolvidos",
-        valor: data.metrics.resolvedTickets,
-        apoio: "Volume concluído e devolvido como resposta efetiva.",
-        destaque: `${taxaResolucao}% de resolução no painel`,
-        tom: "is-violet",
-      },
-      {
-        titulo: "Tarefas em andamento",
-        valor: data.metrics.tasksInProgress,
-        apoio: "Execução ativa dentro dos projetos e rotinas internas.",
-        destaque:
-          data.metrics.tasksInProgress <= 4 ? "Carga equilibrada" : "Execução intensa no momento",
-        tom: "is-amber",
-      },
-      {
-        titulo: "Projetos ativos",
-        valor: data.metrics.projectsCount,
-        apoio: "Frentes operacionais e estruturas vivas dentro da plataforma.",
-        destaque: `${data.metrics.usersCount} usuários visíveis no ambiente`,
-        tom: "is-emerald",
-      },
-    ];
+    return calcularSaude(
+      data.metrics.openTickets,
+      data.metrics.resolvedTickets,
+      data.metrics.tasksInProgress
+    );
   }, [data]);
 
-  const visaoOperacional = useMemo(() => {
-    if (!data) {
-      return null;
-    }
+  if (loading) {
+    return (
+      <section className="dashboard-page dashboard-page--loading">
+        <div className="dashboard-loading-hero shimmer" />
+        <div className="dashboard-loading-grid">
+          <div className="dashboard-loading-card shimmer" />
+          <div className="dashboard-loading-card shimmer" />
+          <div className="dashboard-loading-card shimmer" />
+          <div className="dashboard-loading-card shimmer" />
+        </div>
+        <div className="dashboard-loading-panel shimmer" />
+        <div className="dashboard-loading-panel shimmer" />
+      </section>
+    );
+  }
 
-    const totalChamados = data.metrics.openTickets + data.metrics.resolvedTickets;
-    const taxaResolucao =
-      totalChamados > 0 ? Math.round((data.metrics.resolvedTickets / totalChamados) * 100) : 0;
-
-    const cargaPorUsuario =
-      data.metrics.usersCount > 0
-        ? (data.metrics.openTickets / data.metrics.usersCount).toFixed(1)
-        : "0.0";
-
-    const focoImediato =
-      data.metrics.openTickets > data.metrics.tasksInProgress
-        ? "Reduzir a fila de chamados e acelerar resposta da operação."
-        : "Sustentar a execução das tarefas em andamento sem perder ritmo de atendimento.";
-
-    const capacidadeTexto =
-      data.metrics.usersCount >= 6
-        ? "Equipe com boa cobertura para distribuir demanda."
-        : "Equipe enxuta, exigindo priorização mais disciplinada.";
-
-    return {
-      taxaResolucao,
-      cargaPorUsuario,
-      focoImediato,
-      capacidadeTexto,
-    };
-  }, [data]);
-
-  if (!data || !visaoOperacional) {
-    return <div className="panel-card">Carregando painel...</div>;
+  if (!data) {
+    return (
+      <section className="dashboard-empty-state">
+        <div className="dashboard-empty-state__card">
+          <span className="dashboard-chip dashboard-chip--danger">
+            Dashboard indisponível
+          </span>
+          <h1>Não foi possível carregar a central de comando</h1>
+          <p>
+            O sistema não conseguiu montar a leitura operacional agora. Tente
+            novamente para restaurar o painel.
+          </p>
+          <button
+            type="button"
+            className="dashboard-primary-button"
+            onClick={() => loadDashboard()}
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </section>
+    );
   }
 
   return (
-    <div className="page-stack dashboard-page">
-      <section className="header-card wow-gradient dashboard-hero">
+    <section className="dashboard-page">
+      <header className="dashboard-hero">
         <div className="dashboard-hero__content">
-          <span className="eyebrow">Central de comando WoWHUB</span>
-          <h1>Painel operacional</h1>
-          <p className="dashboard-hero__lead">
-            Visão executiva da operação, com leitura rápida de carga, execução e estabilidade do ambiente.
+          <span className="dashboard-eyebrow">WoWHUB Command Center</span>
+          <h1>Dashboard operacional</h1>
+          <p>
+            Uma leitura clara do ambiente para tickets, tarefas, usuários,
+            projetos e atividade recente, sem poeira de painel genérico.
           </p>
 
           <div className="dashboard-hero__chips">
-            <span className="dashboard-chip">Suporte em andamento</span>
-            <span className="dashboard-chip">Rotina interna ativa</span>
-            <span className="dashboard-chip">Ambiente SaaS operacional</span>
+            <span className="dashboard-chip">Atendimento</span>
+            <span className="dashboard-chip">Execução</span>
+            <span className="dashboard-chip">Atividade recente</span>
           </div>
         </div>
 
-        <aside className="dashboard-hero__status">
-          <div className="dashboard-status-card">
-            <div className="dashboard-status-card__top">
-              <span className="dashboard-status-card__label">Saúde operacional</span>
-              <span className={`dashboard-status-badge ${saudeOperacional?.tom}`}>
-                {saudeOperacional?.rotulo}
-              </span>
+        <div className="dashboard-hero__sidecard">
+          <div className="dashboard-hero__sidecard-top">
+            <span className="dashboard-eyebrow">Saúde do ambiente</span>
+            <span
+              className={`dashboard-status-badge dashboard-status-badge--${health.tone}`}
+            >
+              {refreshing ? "Atualizando..." : health.label}
+            </span>
+          </div>
+
+          <p>{health.text}</p>
+
+          <div className="dashboard-hero__mini-grid">
+            <div className="dashboard-mini-stat">
+              <span>Usuários</span>
+              <strong>{data.metrics.usersCount}</strong>
             </div>
-
-            <p className="dashboard-status-card__text">{saudeOperacional?.descricao}</p>
-
-            <div className="dashboard-status-card__metrics">
-              <div>
-                <small>Equipe visível</small>
-                <strong>{data.metrics.usersCount}</strong>
-              </div>
-
-              <div>
-                <small>Projetos ativos</small>
-                <strong>{data.metrics.projectsCount}</strong>
-              </div>
-
-              <div>
-                <small>Fila aberta</small>
-                <strong>{data.metrics.openTickets}</strong>
-              </div>
+            <div className="dashboard-mini-stat">
+              <span>Projetos</span>
+              <strong>{data.metrics.projectsCount}</strong>
+            </div>
+            <div className="dashboard-mini-stat">
+              <span>Em execução</span>
+              <strong>{data.metrics.tasksInProgress}</strong>
             </div>
           </div>
-        </aside>
-      </section>
+        </div>
+      </header>
 
-      <section className="dashboard-metrics-grid">
-        {metricas.map((metrica) => (
-          <article key={metrica.titulo} className={`dashboard-kpi-card ${metrica.tom}`}>
-            <div className="dashboard-kpi-card__glow" />
-
-            <div className="dashboard-kpi-card__top">
-              <div>
-                <h3>{metrica.titulo}</h3>
-              </div>
-
-              <span className="dashboard-kpi-card__badge">{metrica.destaque}</span>
-            </div>
-
-            <div className="dashboard-kpi-card__value-row">
-              <strong>{metrica.valor}</strong>
-            </div>
-
-            <p>{metrica.apoio}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="panel-card dashboard-overview">
-        <div className="dashboard-overview__header">
+      {notice ? (
+        <div
+          className={`dashboard-notice dashboard-notice--${notice.type}`}
+          role="status"
+          aria-live="polite"
+        >
           <div>
-            <span className="eyebrow">Visão operacional</span>
-            <h2>Leitura executiva do ambiente</h2>
+            <strong>{notice.title}</strong>
+            <p>{notice.message}</p>
           </div>
 
-          <p className="dashboard-overview__copy">
-            Um resumo direto da carga atual, capacidade visível e foco imediato da operação.
-          </p>
+          <button type="button" onClick={() => setNotice(null)}>
+            ×
+          </button>
         </div>
+      ) : null}
 
-        <div className="dashboard-overview__grid">
-          <article className="dashboard-overview-card is-primary">
-            <span className="dashboard-overview-card__label">Foco imediato</span>
-            <strong>{visaoOperacional.focoImediato}</strong>
-            <p>
-              A relação entre chamados abertos e tarefas em execução indica onde a atenção precisa estar agora.
-            </p>
-          </article>
+      <section className="dashboard-stats-grid">
+        <article className="dashboard-stat-card">
+          <span className="dashboard-stat-card__label">Chamados abertos</span>
+          <strong>{data.metrics.openTickets}</strong>
+          <p>Volume de solicitações ainda pedindo resposta da operação.</p>
+        </article>
 
-          <article className="dashboard-overview-card">
-            <span className="dashboard-overview-card__label">Taxa de resolução</span>
-            <strong>{visaoOperacional.taxaResolucao}%</strong>
-            <p>Percentual de chamados resolvidos dentro do volume monitorado no painel.</p>
-          </article>
+        <article className="dashboard-stat-card">
+          <span className="dashboard-stat-card__label">Chamados resolvidos</span>
+          <strong>{data.metrics.resolvedTickets}</strong>
+          <p>Itens concluídos dentro do fluxo de suporte.</p>
+        </article>
 
-          <article className="dashboard-overview-card">
-            <span className="dashboard-overview-card__label">Carga por usuário</span>
-            <strong>{visaoOperacional.cargaPorUsuario}</strong>
-            <p>Média de chamados abertos por usuário visível no ambiente operacional.</p>
-          </article>
+        <article className="dashboard-stat-card">
+          <span className="dashboard-stat-card__label">Tarefas em andamento</span>
+          <strong>{data.metrics.tasksInProgress}</strong>
+          <p>Execução ativa concentrada na trilha operacional.</p>
+        </article>
 
-          <article className="dashboard-overview-card">
-            <span className="dashboard-overview-card__label">Capacidade atual</span>
-            <strong>{data.metrics.usersCount} usuários</strong>
-            <p>{visaoOperacional.capacidadeTexto}</p>
-          </article>
-        </div>
+        <article className="dashboard-stat-card">
+          <span className="dashboard-stat-card__label">Projetos ativos</span>
+          <strong>{data.metrics.projectsCount}</strong>
+          <p>Estruturas vivas sustentando o ambiente SaaS.</p>
+        </article>
       </section>
 
-      <section className="content-grid">
-        <div className="panel-card dashboard-section-card">
-          <div className="panel-title-row dashboard-section-card__header">
+      <section className="dashboard-panel-grid">
+        <article className="dashboard-panel-card">
+          <div className="dashboard-panel-card__header">
             <div>
-              <span className="eyebrow">Fila recente</span>
+              <span className="dashboard-eyebrow">Atendimento recente</span>
               <h2>Chamados recentes</h2>
             </div>
-            <span className="dashboard-section-card__count">{data.tickets.length} itens</span>
+
+            <button
+              type="button"
+              className="dashboard-ghost-button"
+              onClick={() => loadDashboard({ silent: true })}
+            >
+              Atualizar painel
+            </button>
           </div>
 
-          <div className="mini-list dashboard-list">
-            {data.tickets.map((ticket) => (
-              <div key={ticket.id} className="list-row dashboard-list-row">
-                <div className="dashboard-list-row__main">
-                  <strong>{ticket.title}</strong>
-                  <p>
-                    {ticket.user.name} • {ticket.category}
-                  </p>
-                </div>
-
-                <div className="dashboard-list-row__meta">
-                  <span className={`dashboard-priority-badge ${ticket.priority.toLowerCase()}`}>
-                    {traduzirPrioridade(ticket.priority)}
-                  </span>
-                  <span className="pill neutral">{traduzirStatus(ticket.status)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="panel-card dashboard-section-card">
-          <div className="panel-title-row dashboard-section-card__header">
-            <div>
-              <span className="eyebrow">Execução recente</span>
-              <h2>Tarefas recentes</h2>
+          {data.tickets.length === 0 ? (
+            <div className="dashboard-empty-block">
+              <strong>Nenhum chamado recente</strong>
+              <p>Os próximos tickets criados vão aparecer aqui.</p>
             </div>
-            <span className="dashboard-section-card__count">{data.tasks.length} itens</span>
-          </div>
+          ) : (
+            <div className="dashboard-ticket-list">
+              {data.tickets.map((ticket) => (
+                <article key={ticket.id} className="dashboard-ticket-card">
+                  <div className="dashboard-ticket-card__top">
+                    <div>
+                      <h3>{ticket.title}</h3>
+                      <p>
+                        {ticket.user.name} • {ticket.category}
+                      </p>
+                    </div>
 
-          <div className="mini-list dashboard-list">
-            {data.tasks.map((task) => (
-              <div key={task.id} className="list-row dashboard-list-row">
-                <div className="dashboard-list-row__main">
-                  <strong>{task.title}</strong>
-                  <p>
-                    {task.project.name} • {task.assignee?.name || "Sem responsável"}
-                  </p>
-                </div>
+                    <div className="dashboard-ticket-card__badges">
+                      <span
+                        className={`dashboard-priority-badge dashboard-priority-badge--${ticket.priority.toLowerCase()}`}
+                      >
+                        {traduzirPrioridade(ticket.priority)}
+                      </span>
 
-                <div className="dashboard-list-row__meta">
-                  <span className="pill neutral">{traduzirStatus(task.status)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="panel-card dashboard-activity-panel">
-        <div className="panel-title-row dashboard-activity-panel__header">
-          <div>
-            <span className="eyebrow">Fluxo recente</span>
-            <h2>Atividade da operação</h2>
-          </div>
-          <p className="dashboard-activity-panel__copy">
-            Leitura rápida do que foi movimentado no ambiente nas ações mais recentes.
-          </p>
-        </div>
-
-        <div className="dashboard-timeline">
-          {data.recentActivity.map((activity, index) => {
-            const resumo = obterResumoAtividade(activity.action);
-
-            return (
-              <article key={activity.id} className="dashboard-timeline-item">
-                <div className="dashboard-timeline-item__rail">
-                  <span className={`dashboard-timeline-item__dot ${resumo.tom}`} />
-                  {index < data.recentActivity.length - 1 ? (
-                    <span className="dashboard-timeline-item__line" />
-                  ) : null}
-                </div>
-
-                <div className="dashboard-timeline-item__content">
-                  <div className="dashboard-timeline-item__top">
-                    <span className={`dashboard-timeline-item__tag ${resumo.tom}`}>
-                      {resumo.grupo}
-                    </span>
-                    <span className="dashboard-timeline-item__user">{activity.user.name}</span>
+                      <span
+                        className={`dashboard-status-badge dashboard-status-badge--${ticket.status.toLowerCase()}`}
+                      >
+                        {traduzirStatus(ticket.status)}
+                      </span>
+                    </div>
                   </div>
 
-                  <strong>{activity.action}</strong>
-                  <p>{activity.details}</p>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+                  <div className="dashboard-ticket-card__footer">
+                    <span>{formatarData(ticket.createdAt)}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </article>
+
+        <article className="dashboard-panel-card">
+          <div className="dashboard-panel-card__header">
+            <div>
+              <span className="dashboard-eyebrow">Execução recente</span>
+              <h2>Tarefas recentes</h2>
+            </div>
+          </div>
+
+          {data.tasks.length === 0 ? (
+            <div className="dashboard-empty-block">
+              <strong>Nenhuma tarefa recente</strong>
+              <p>As próximas tarefas criadas vão alimentar esta coluna.</p>
+            </div>
+          ) : (
+            <div className="dashboard-task-list">
+              {data.tasks.map((task) => (
+                <article key={task.id} className="dashboard-task-card">
+                  <div className="dashboard-task-card__top">
+                    <div>
+                      <h3>{task.title}</h3>
+                      <p>
+                        {task.project.name} •{" "}
+                        {task.assignee?.name || "Sem responsável"}
+                      </p>
+                    </div>
+
+                    <span
+                      className={`dashboard-status-badge dashboard-status-badge--${task.status.toLowerCase()}`}
+                    >
+                      {traduzirStatus(task.status)}
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </article>
       </section>
-    </div>
+
+      <section className="dashboard-panel-card">
+        <div className="dashboard-panel-card__header">
+          <div>
+            <span className="dashboard-eyebrow">Atividade do ambiente</span>
+            <h2>Fluxo recente de atividade</h2>
+          </div>
+        </div>
+
+        {data.recentActivity.length === 0 ? (
+          <div className="dashboard-empty-block">
+            <strong>Nenhuma atividade recente</strong>
+            <p>As próximas ações operacionais vão aparecer aqui.</p>
+          </div>
+        ) : (
+          <div className="dashboard-activity-list">
+            {data.recentActivity.map((activity) => (
+              <div key={activity.id} className="dashboard-activity-item">
+                <div className="dashboard-activity-item__line" />
+                <div className="dashboard-activity-item__content">
+                  <strong>{traduzirAcao(activity.action)}</strong>
+                  <p>{activity.details}</p>
+                  <span>
+                    {activity.user.name} • {formatarData(activity.createdAt)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </section>
   );
 }
