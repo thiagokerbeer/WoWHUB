@@ -19,8 +19,8 @@ export function LoginPage() {
   const location = useLocation();
 
   const [form, setForm] = useState({
-    email: "admin@wowhub.com",
-    password: "123456",
+    email: "",
+    password: "",
   });
 
   const [error, setError] = useState("");
@@ -101,15 +101,25 @@ export function LoginPage() {
         <BrandLogo subtitle="Secure Access" />
 
         <div>
-          <span className="eyebrow">Bem-vindo de volta</span>
-          <h1>Acesse o WoWHUB</h1>
+          <span className="eyebrow">Acesso privado</span>
+          <h1>Entre no WoWHUB</h1>
           <p className="body-copy">
-            Entre com sua conta para acessar a operação com segurança e
-            estabilidade.
+            Use sua conta para acessar a operação, acompanhar tarefas, abrir
+            chamados e navegar pela área privada do produto.
+          </p>
+          <p className="muted-line">
+            Quer testar pela primeira vez? Crie sua conta em segundos. O acesso
+            administrativo não fica exposto nesta tela e permanece somente na
+            documentação da demo.
           </p>
         </div>
 
-        {infoMessage ? <div className="success-box">{infoMessage}</div> : null}
+        {infoMessage ? (
+          <div className="feature-card">
+            <span className="feature-kicker">Conta criada</span>
+            <p className="muted-line">{infoMessage}</p>
+          </div>
+        ) : null}
 
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>
@@ -155,6 +165,10 @@ export function LoginPage() {
 
         <p className="body-copy">
           Ainda não tem conta? <Link to="/register">Cadastre-se</Link>
+        </p>
+
+        <p className="muted-line">
+          Voltou para conhecer melhor o produto? <Link to="/">Ir para a home</Link>
         </p>
       </div>
     </div>
