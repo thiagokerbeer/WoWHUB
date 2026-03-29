@@ -1,13 +1,18 @@
 import { NextFunction, Request, Response } from "express";
+import { AppError } from "../utils/AppError";
 
-export function adminMiddleware(req: Request, res: Response, next: NextFunction) {
+export function adminMiddleware(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+) {
   if (!req.user) {
-    return res.status(401).json({ message: "Não autenticado" });
+    return next(new AppError(401, "Não autenticado"));
   }
 
   if (req.user.role !== "ADMIN") {
-    return res.status(403).json({ message: "Acesso restrito ao admin" });
+    return next(new AppError(403, "Acesso restrito ao admin"));
   }
 
-  next();
+  return next();
 }
