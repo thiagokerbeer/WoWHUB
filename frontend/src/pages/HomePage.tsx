@@ -1,7 +1,9 @@
 import { Link, Navigate } from "react-router-dom";
 import { BrandLogo } from "../components/BrandLogo";
 import { InteractiveBackground } from "../components/InteractiveBackground";
+import { PublicShell } from "../components/PublicShell";
 import { useAuth } from "../context/AuthContext";
+import "./HomePage.css";
 
 const heroSignals = [
   {
@@ -107,10 +109,12 @@ export function HomePage() {
 
   if (loading) {
     return (
-      <div className="center-screen app-background">
-        <InteractiveBackground />
-        <div className="loading-screen-card">Carregando WoWHUB...</div>
-      </div>
+      <PublicShell footerMeta="Preparando a experiência…">
+        <div className="public-panel public-panel--loading">
+          <BrandLogo subtitle="WoWHUB" compact to="/" />
+          <p className="public-loading-text">Carregando WoWHUB…</p>
+        </div>
+      </PublicShell>
     );
   }
 
@@ -119,16 +123,16 @@ export function HomePage() {
   }
 
   return (
-    <div className="landing-page app-background">
+    <div className="landing-page app-background" id="topo">
       <InteractiveBackground />
       <div className="background-orb orb-one" />
       <div className="background-orb orb-two" />
       <div className="background-grid" />
 
-      <header className="topbar hero-shell">
+      <header className="topbar hero-shell landing-header">
         <BrandLogo subtitle="Ops SaaS Platform" />
 
-        <div className="top-actions">
+        <nav className="top-actions" aria-label="Ações da página inicial">
           <Link to="/login" className="link-light">
             Entrar
           </Link>
@@ -136,17 +140,24 @@ export function HomePage() {
           <Link to="/register" className="button-primary">
             Criar conta
           </Link>
-        </div>
+        </nav>
       </header>
 
-      <main className="hero-section hero-shell">
-        <section className="hero-content">
+      <main className="hero-section hero-shell landing-main">
+        <section className="hero-content landing-hero" aria-labelledby="landing-hero-title">
           <div>
+            <p className="landing-hero-badge">
+              <span className="landing-hero-badge__dot" aria-hidden />
+              Ambiente de demonstração
+            </p>
+
             <span className="eyebrow">
               Service desk, tarefas e governança operacional
             </span>
 
-            <h1>Uma central de operação com cara de produto em produção.</h1>
+            <h1 id="landing-hero-title">
+              Uma central de operação com cara de produto em produção.
+            </h1>
 
             <p className="hero-lead">
               O WoWHUB reúne suporte, execução e leitura gerencial em uma única
@@ -200,7 +211,17 @@ export function HomePage() {
           </div>
         </section>
 
-        <section className="feature-grid">
+        <hr className="landing-divider landing-block landing-block--metrics-after" />
+
+        <div className="landing-section-head">
+          <h2 className="landing-section-title">O que você encontra na plataforma</h2>
+          <p className="landing-section-sub">
+            Módulos integrados para leitura executiva, suporte, execução e governança — com a
+            mesma experiência que você esperaria de uma ferramenta já adotada pelo time.
+          </p>
+        </div>
+
+        <section className="feature-grid" aria-label="Módulos do produto">
           {productModules.map((module) => (
             <article key={module.title} className="feature-card">
               <span className="feature-kicker">{module.kicker}</span>
@@ -210,7 +231,7 @@ export function HomePage() {
           ))}
         </section>
 
-        <section className="showcase-strip">
+        <section className="showcase-strip landing-block">
           <div>
             <span className="eyebrow">Narrativa de produto mais madura</span>
             <h3>Menos “CRUD de demonstração”, mais plataforma de operação.</h3>
@@ -226,7 +247,17 @@ export function HomePage() {
           </Link>
         </section>
 
-        <section className="feature-grid">
+        <hr className="landing-divider landing-block landing-block--between-grids" />
+
+        <div className="landing-section-head">
+          <h2 className="landing-section-title">Operação com linguagem madura</h2>
+          <p className="landing-section-sub">
+            SLA, colaboração, visibilidade e controle de acesso — pilares apresentados como em um
+            produto pensado para uso contínuo, não só para demo.
+          </p>
+        </div>
+
+        <section className="feature-grid" aria-label="Pilares operacionais">
           {operatingLayers.map((layer) => (
             <article key={layer.title} className="feature-card">
               <span className="feature-kicker">{layer.kicker}</span>
@@ -236,7 +267,7 @@ export function HomePage() {
           ))}
         </section>
 
-        <section className="showcase-strip">
+        <section className="showcase-strip landing-block landing-block--pre-footer">
           <div>
             <span className="eyebrow">Fluxo público mais limpo</span>
             <h3>
@@ -260,6 +291,24 @@ export function HomePage() {
             </Link>
           </div>
         </section>
+
+        <footer className="landing-footer">
+          <div className="landing-footer__brand">
+            <span className="landing-footer__mark" aria-hidden>
+              WH
+            </span>
+            <div className="landing-footer__text">
+              <strong>WoWHUB</strong>
+              <span>Plataforma operacional · demonstração</span>
+            </div>
+          </div>
+
+          <nav className="landing-footer__links" aria-label="Links do rodapé">
+            <Link to="/login">Entrar</Link>
+            <Link to="/register">Criar conta</Link>
+            <a href="#topo">Voltar ao topo</a>
+          </nav>
+        </footer>
       </main>
     </div>
   );

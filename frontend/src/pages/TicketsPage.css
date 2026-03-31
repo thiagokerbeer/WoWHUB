@@ -309,6 +309,13 @@
   background: rgba(255, 255, 255, 0.04);
   color: #f7f8ff;
   outline: none;
+  color-scheme: dark;
+}
+
+.tickets-input-wrap select option,
+.tickets-input-wrap select optgroup {
+  background-color: #141020;
+  color: #f2ecff;
 }
 
 .tickets-input-wrap textarea {

@@ -222,6 +222,13 @@
   background: rgba(255, 255, 255, 0.04);
   color: #f7f8ff;
   outline: none;
+  color-scheme: dark;
+}
+
+.tasks-input-wrap select option,
+.tasks-input-wrap select optgroup {
+  background-color: #141020;
+  color: #f2ecff;
 }
 
 .tasks-input-wrap textarea {

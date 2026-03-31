@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { BrandLogo } from "../components/BrandLogo";
-import { InteractiveBackground } from "../components/InteractiveBackground";
+import { PublicShell } from "../components/PublicShell";
 
 type LocationState = {
   from?: {
@@ -12,6 +12,19 @@ type LocationState = {
 };
 
 const AUTH_MESSAGE_KEY = "wowhub_auth_message";
+
+const DEMO_PASSWORD = "123456";
+
+const DEMO_ACCOUNTS = [
+  {
+    label: "Administrador",
+    email: "admin@wowhub.com",
+  },
+  {
+    label: "Usuário",
+    email: "user@wowhub.com",
+  },
+] as const;
 
 export function LoginPage() {
   const { login, isAuthenticated, loading } = useAuth();
@@ -42,6 +55,11 @@ export function LoginPage() {
     }
   }, [isAuthenticated, loading, navigate]);
 
+  function fillDemoAccount(email: string) {
+    setForm({ email, password: DEMO_PASSWORD });
+    setError("");
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -59,8 +77,17 @@ export function LoginPage() {
       const redirectTo = state?.from?.pathname || "/app";
 
       navigate(redirectTo, { replace: true });
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Falha ao entrar");
+    } catch (err: unknown) {
+      const message =
+        err &&
+        typeof err === "object" &&
+        "response" in err &&
+        typeof (err as { response?: { data?: { message?: string } } })
+          .response === "object"
+          ? (err as { response?: { data?: { message?: string } } }).response
+              ?.data?.message
+          : undefined;
+      setError(message || "Falha ao entrar");
     } finally {
       setSubmitting(false);
     }
@@ -68,58 +95,57 @@ export function LoginPage() {
 
   if (loading) {
     return (
-      <div className="auth-page">
-        <InteractiveBackground />
-        <div className="background-orb orb-one" />
-        <div className="background-orb orb-two" />
-        <div className="background-grid" />
-
-        <div className="auth-card">
-          <BrandLogo subtitle="Secure Access" />
-
-          <div>
-            <span className="eyebrow">Sessão protegida</span>
-            <h1>Verificando acesso</h1>
-            <p className="body-copy">
-              Estamos confirmando suas credenciais e preparando sua entrada no
-              WoWHUB.
-            </p>
-          </div>
+      <PublicShell footerMeta="Verificando sessão…">
+        <div className="public-panel public-panel--loading">
+          <BrandLogo subtitle="WoWHUB" compact to="/" />
+          <p className="public-loading-text">Sincronizando com o servidor…</p>
         </div>
-      </div>
+      </PublicShell>
     );
   }
 
   return (
-    <div className="auth-page">
-      <InteractiveBackground />
-      <div className="background-orb orb-one" />
-      <div className="background-orb orb-two" />
-      <div className="background-grid" />
-
-      <div className="auth-card">
-        <BrandLogo subtitle="Secure Access" />
-
-        <div>
-          <span className="eyebrow">Acesso privado</span>
-          <h1>Entre no WoWHUB</h1>
-          <p className="body-copy">
-            Use sua conta para acessar a operação, acompanhar tarefas, abrir
-            chamados e navegar pela área privada do produto.
+    <PublicShell>
+      <div className="public-panel">
+        <div className="public-panel__intro">
+          <p className="public-badge">
+            <span className="public-badge__dot" aria-hidden />
+            Área privada
           </p>
-          <p className="muted-line">
-            Quer testar pela primeira vez? Crie sua conta em segundos. O acesso
-            administrativo não fica exposto nesta tela e permanece somente na
-            documentação da demo.
+          <h1 className="public-page-title">Entrar</h1>
+          <p className="public-lead">
+            Use sua conta para acessar dashboard, chamados e tarefas no mesmo ambiente.
           </p>
         </div>
 
         {infoMessage ? (
-          <div className="feature-card">
-            <span className="feature-kicker">Conta criada</span>
-            <p className="muted-line">{infoMessage}</p>
-          </div>
+          <div className="public-banner public-banner--info">{infoMessage}</div>
         ) : null}
+
+        <section className="public-demo" aria-label="Contas para demonstração">
+          <p className="public-demo__title">Demonstração</p>
+          <p className="public-demo__hint">
+            Senha em ambas:{" "}
+            <code className="public-demo__mono">{DEMO_PASSWORD}</code>
+          </p>
+          <ul className="public-demo__list">
+            {DEMO_ACCOUNTS.map((account) => (
+              <li key={account.email} className="public-demo__row">
+                <div className="public-demo__meta">
+                  <span className="public-demo__label">{account.label}</span>
+                  <span className="public-demo__email">{account.email}</span>
+                </div>
+                <button
+                  type="button"
+                  className="small-button public-demo__btn"
+                  onClick={() => fillDemoAccount(account.email)}
+                >
+                  Preencher
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
 
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>
@@ -158,19 +184,17 @@ export function LoginPage() {
 
           {error ? <div className="error-box">{error}</div> : null}
 
-          <button type="submit" className="primary-button" disabled={submitting}>
-            {submitting ? "Entrando..." : "Entrar"}
-          </button>
+          <div className="public-form-actions">
+            <button
+              type="submit"
+              className="button-primary"
+              disabled={submitting}
+            >
+              {submitting ? "Entrando…" : "Entrar"}
+            </button>
+          </div>
         </form>
-
-        <p className="body-copy">
-          Ainda não tem conta? <Link to="/register">Cadastre-se</Link>
-        </p>
-
-        <p className="muted-line">
-          Voltou para conhecer melhor o produto? <Link to="/">Ir para a home</Link>
-        </p>
       </div>
-    </div>
+    </PublicShell>
   );
 }

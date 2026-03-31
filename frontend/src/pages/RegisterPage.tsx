@@ -2,8 +2,13 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { BrandLogo } from "../components/BrandLogo";
-import { InteractiveBackground } from "../components/InteractiveBackground";
+import { PublicShell } from "../components/PublicShell";
+
+const REGISTER_POINTS = [
+  "Validação no servidor e limite de tentativas no cadastro e login.",
+  "Acesso imediato à área privada após criar a conta.",
+  "Mesma experiência visual e fluxo do restante da plataforma.",
+] as const;
 
 export function RegisterPage() {
   const { register } = useAuth();
@@ -32,30 +37,42 @@ export function RegisterPage() {
       });
 
       navigate("/app");
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Falha no cadastro");
+    } catch (err: unknown) {
+      const message =
+        err &&
+        typeof err === "object" &&
+        "response" in err &&
+        typeof (err as { response?: { data?: { message?: string } } })
+          .response === "object"
+          ? (err as { response?: { data?: { message?: string } } }).response
+              ?.data?.message
+          : undefined;
+      setError(message || "Falha no cadastro");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="auth-page">
-      <InteractiveBackground />
-      <div className="background-orb orb-one" />
-      <div className="background-orb orb-two" />
-      <div className="background-grid" />
-
-      <div className="auth-card">
-        <BrandLogo subtitle="Protected Signup" />
-
-        <div>
-          <span className="eyebrow">Novo operador</span>
-          <h1>Crie sua conta</h1>
-          <p className="body-copy">
-            Cadastro protegido por validação no servidor e limite de tentativas.
+    <PublicShell>
+      <div className="public-panel">
+        <div className="public-panel__intro">
+          <p className="public-badge">
+            <span className="public-badge__dot" aria-hidden />
+            Novo operador
+          </p>
+          <h1 className="public-page-title">Criar conta</h1>
+          <p className="public-lead">
+            Cadastre-se para explorar tickets, tarefas e o painel com uma conta sua —
+            em poucos passos você já está dentro do ambiente.
           </p>
         </div>
+
+        <ul className="public-checklist" aria-label="O que você obtém">
+          {REGISTER_POINTS.map((text) => (
+            <li key={text}>{text}</li>
+          ))}
+        </ul>
 
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>
@@ -69,7 +86,7 @@ export function RegisterPage() {
                   name: e.target.value,
                 }))
               }
-              placeholder="Seu nome"
+              placeholder="Como devemos te chamar"
               autoComplete="name"
               required
             />
@@ -103,7 +120,7 @@ export function RegisterPage() {
                   password: e.target.value,
                 }))
               }
-              placeholder="Crie uma senha"
+              placeholder="Mínimo seguro para a demo"
               autoComplete="new-password"
               required
             />
@@ -111,15 +128,21 @@ export function RegisterPage() {
 
           {error ? <div className="error-box">{error}</div> : null}
 
-          <button type="submit" className="primary-button" disabled={submitting}>
-            {submitting ? "Criando..." : "Cadastrar"}
-          </button>
+          <div className="public-form-actions">
+            <button
+              type="submit"
+              className="button-primary"
+              disabled={submitting}
+            >
+              {submitting ? "Criando conta…" : "Cadastrar e entrar"}
+            </button>
+          </div>
         </form>
 
-        <p className="body-copy">
+        <p className="public-panel__footnote">
           Já tem conta? <Link to="/login">Entrar</Link>
         </p>
       </div>
-    </div>
+    </PublicShell>
   );
 }

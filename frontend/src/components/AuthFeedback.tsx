@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { WOWHUB_AUTH_EVENTS } from "../services/api";
+import "./AuthFeedback.css";
 
 type NoticeType = "warning" | "error" | "success";
 
@@ -182,111 +183,37 @@ export function AuthFeedback() {
     return null;
   }
 
-  const palette =
+  const toneClass =
     notice.type === "success"
-      ? {
-          border: "rgba(74, 222, 128, 0.45)",
-          glow: "rgba(74, 222, 128, 0.16)",
-          title: "#dcfce7",
-          text: "#bbf7d0",
-        }
+      ? "auth-feedback--success"
       : notice.type === "error"
-      ? {
-          border: "rgba(248, 113, 113, 0.45)",
-          glow: "rgba(248, 113, 113, 0.16)",
-          title: "#fee2e2",
-          text: "#fecaca",
-        }
-      : {
-          border: "rgba(250, 204, 21, 0.45)",
-          glow: "rgba(250, 204, 21, 0.16)",
-          title: "#fef3c7",
-          text: "#fde68a",
-        };
+        ? "auth-feedback--error"
+        : "auth-feedback--warning";
 
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      style={{
-        position: "fixed",
-        top: 20,
-        right: 20,
-        zIndex: 9999,
-        width: "min(420px, calc(100vw - 32px))",
-      }}
-    >
-      <div
-        style={{
-          border: `1px solid ${palette.border}`,
-          background:
-            "linear-gradient(135deg, rgba(10, 10, 16, 0.96), rgba(18, 18, 28, 0.96))",
-          boxShadow: `0 20px 50px ${palette.glow}`,
-          borderRadius: 20,
-          padding: "16px 18px",
-          backdropFilter: "blur(12px)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            gap: 12,
-          }}
-        >
+    <div className={`auth-feedback ${toneClass}`} role="status" aria-live="polite">
+      <div className="auth-feedback__panel">
+        <div className="auth-feedback__row">
           <div>
-            <strong
-              style={{
-                display: "block",
-                fontSize: 15,
-                color: palette.title,
-                marginBottom: 6,
-              }}
-            >
-              {notice.title}
-            </strong>
-
-            <p
-              style={{
-                margin: 0,
-                lineHeight: 1.55,
-                fontSize: 14,
-                color: palette.text,
-              }}
-            >
-              {notice.message}
-            </p>
+            <strong className="auth-feedback__title">{notice.title}</strong>
+            <p className="auth-feedback__message">{notice.message}</p>
           </div>
 
           <button
             type="button"
+            className="auth-feedback__close"
             onClick={() => setNotice(null)}
             aria-label="Fechar aviso"
-            style={{
-              border: "none",
-              background: "transparent",
-              color: "#d1d5db",
-              cursor: "pointer",
-              fontSize: 18,
-              lineHeight: 1,
-            }}
           >
             ×
           </button>
         </div>
 
         {isPrivateArea && notice.type !== "success" ? (
-          <div
-            style={{
-              marginTop: 12,
-              fontSize: 12,
-              color: "#9ca3af",
-            }}
-          >
+          <p className="auth-feedback__hint">
             O WoWHUB protege automaticamente áreas privadas quando a sessão perde
             validade.
-          </div>
+          </p>
         ) : null}
       </div>
     </div>

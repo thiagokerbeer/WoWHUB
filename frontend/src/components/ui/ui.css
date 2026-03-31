@@ -454,6 +454,13 @@
   padding: 12px 14px;
   outline: none;
   font: inherit;
+  color-scheme: dark;
+}
+
+.wowui-select option,
+.wowui-select optgroup {
+  background-color: #141020;
+  color: #f2ecff;
 }
 
 .wowui-textarea {

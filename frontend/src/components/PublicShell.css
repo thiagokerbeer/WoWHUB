@@ -1,0 +1,323 @@
+/* Shell compartilhado: home (loading), login, register — mesma linha visual da landing */
+
+.public-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.public-shell__header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.95rem 1.5rem;
+  background: linear-gradient(
+    180deg,
+    rgba(8, 6, 14, 0.94) 0%,
+    rgba(8, 6, 14, 0.82) 55%,
+    rgba(8, 6, 14, 0) 100%
+  );
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(164, 130, 255, 0.1);
+}
+
+.public-shell__nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.1rem;
+}
+
+.public-shell__link {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: rgba(200, 192, 232, 0.88);
+  text-decoration: none;
+  padding: 0.4rem 0;
+  border-bottom: 2px solid transparent;
+  transition:
+    color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.public-shell__link:hover {
+  color: #f5f2ff;
+}
+
+.public-shell__link.is-active {
+  color: #fff;
+  border-bottom-color: rgba(159, 107, 255, 0.65);
+}
+
+.public-shell__main {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem 1.25rem 2rem;
+  width: 100%;
+}
+
+.public-shell__footer {
+  max-width: 1240px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem 1.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.public-shell__footer-brand {
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: rgba(188, 174, 255, 0.95);
+}
+
+.public-shell__footer-meta {
+  font-size: 0.78rem;
+  color: rgba(154, 144, 184, 0.92);
+}
+
+/* Painel central (login / register / loading) */
+.public-panel {
+  width: min(100%, 440px);
+  border-radius: 26px;
+  padding: 1.75rem 1.65rem;
+  display: grid;
+  gap: 1.1rem;
+  background: rgba(13, 10, 22, 0.86);
+  border: 1px solid rgba(164, 130, 255, 0.16);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  position: relative;
+  z-index: 1;
+  transition:
+    border-color 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.public-panel:hover {
+  border-color: rgba(164, 130, 255, 0.22);
+  box-shadow:
+    0 28px 72px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.public-panel--loading {
+  text-align: center;
+  place-items: center;
+  justify-items: center;
+  gap: 1rem;
+}
+
+.public-panel__intro {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.public-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.32rem 0.8rem 0.32rem 0.6rem;
+  width: fit-content;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(220, 214, 255, 0.92);
+  background: rgba(159, 107, 255, 0.1);
+  border: 1px solid rgba(164, 130, 255, 0.18);
+}
+
+.public-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #9f6bff, #4ae0ff);
+  box-shadow: 0 0 10px rgba(118, 100, 255, 0.5);
+  flex-shrink: 0;
+}
+
+.public-page-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: #faf8ff;
+}
+
+.public-lead {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: rgba(198, 189, 223, 0.92);
+}
+
+.public-loading-text {
+  margin: 0;
+  color: rgba(198, 189, 223, 0.95);
+  font-size: 0.94rem;
+}
+
+.public-banner {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 14px;
+  font-size: 0.87rem;
+  line-height: 1.5;
+  color: #e8e2ff;
+}
+
+.public-banner--info {
+  background: rgba(159, 107, 255, 0.14);
+  border: 1px solid rgba(159, 107, 255, 0.22);
+}
+
+.public-demo {
+  margin: 0;
+  padding: 0.95rem 1rem;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: grid;
+  gap: 0.55rem;
+}
+
+.public-demo__title {
+  margin: 0;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #bcaeff;
+}
+
+.public-demo__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #9a90bc;
+}
+
+.public-demo__mono {
+  font-size: 0.85em;
+  padding: 0.1rem 0.32rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e0d8ff;
+}
+
+.public-demo__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.public-demo__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.public-demo__meta {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.public-demo__label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #f2ecff;
+}
+
+.public-demo__email {
+  font-size: 0.76rem;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  color: #b8aed8;
+  word-break: break-all;
+}
+
+.public-demo__btn {
+  width: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.public-checklist {
+  margin: 0;
+  padding: 0.65rem 0 0;
+  list-style: none;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.public-checklist li {
+  position: relative;
+  padding-left: 1.15rem;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: rgba(190, 184, 218, 0.95);
+}
+
+.public-checklist li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.45rem;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #9f6bff, #4ae0ff);
+  box-shadow: 0 0 8px rgba(118, 100, 255, 0.45);
+}
+
+.public-panel__footnote {
+  margin: 0;
+  font-size: 0.86rem;
+  text-align: center;
+  color: rgba(160, 152, 195, 0.95);
+}
+
+.public-panel__footnote a {
+  color: #d8cffc;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.public-panel__footnote a:hover {
+  text-decoration: underline;
+}
+
+.public-form-actions {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.15rem;
+}
+
+@media (max-width: 520px) {
+  .public-shell__header {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .public-panel {
+    padding: 1.45rem 1.2rem;
+  }
+}

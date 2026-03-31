@@ -4,6 +4,7 @@
   background: #09070f;
   line-height: 1.5;
   font-weight: 400;
+  color-scheme: dark;
 }
 
 * {
@@ -68,6 +69,16 @@ select {
   color: #fff;
   border-radius: 14px;
   padding: 0.95rem 1rem;
+}
+
+select {
+  color-scheme: dark;
+}
+
+select option,
+select optgroup {
+  background-color: #141020;
+  color: #f2ecff;
 }
 
 textarea {
@@ -157,14 +168,12 @@ label {
 }
 
 .app-background,
-.auth-page,
 .app-shell {
   position: relative;
   overflow: hidden;
 }
 
 .app-background::before,
-.auth-page::before,
 .app-shell::before {
   content: "";
   position: fixed;
@@ -335,7 +344,6 @@ label {
 
 .hero-shell,
 .hero-section,
-.auth-card,
 .sidebar,
 .main-panel,
 .header-card,
@@ -485,7 +493,6 @@ label {
 .panel-card,
 .header-card,
 .metric-card,
-.auth-card,
 .showcase-strip {
   backdrop-filter: blur(12px);
   background: rgba(13, 10, 22, 0.72);
@@ -556,21 +563,6 @@ label {
 
 .showcase-strip h3 {
   margin: 0.35rem 0 0.5rem;
-}
-
-.auth-page {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 2rem;
-}
-
-.auth-card {
-  width: min(100%, 460px);
-  border-radius: 28px;
-  padding: 2rem;
-  display: grid;
-  gap: 1rem;
 }
 
 .error-box {
@@ -839,8 +831,7 @@ label {
 
 @media (max-width: 640px) {
   .landing-page,
-  .main-panel,
-  .auth-page {
+  .main-panel {
     padding-left: 1rem;
     padding-right: 1rem;
   }

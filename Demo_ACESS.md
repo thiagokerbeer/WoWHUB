@@ -1,13 +1,13 @@
 # WoWHUB Demo Access
 
-Este arquivo concentra os acessos de demonstração que **não ficam expostos na Home nem na tela de Login**.
+As credenciais abaixo **também aparecem na tela de Login** da aplicação (bloco “Demonstração”), para teste rápido. Este arquivo mantém a mesma referência para quem lê só o repositório.
 
 ## Fluxo público recomendado
 
 Para quem entrar no link da aplicação:
 
 1. abrir a Home
-2. criar uma conta própria
+2. criar uma conta própria (ou usar uma conta de demo na tela de Login)
 3. entrar na área privada
 4. explorar tickets, tarefas e dashboard normalmente
 
@@ -27,6 +27,4 @@ Use este acesso para validar a experiência padrão sem privilégios administrat
 
 ## Observação
 
-A proposta é manter a vitrine pública da aplicação mais limpa e mais próxima de um produto real em demonstração.
-
-Por isso, os acessos prontos ficam documentados aqui, e não mais escancarados dentro da interface inicial.
+A home continua focada em apresentar o produto; o login foi mantido simples, com as contas de demo visíveis só nessa tela para facilitar revisão e testes.
