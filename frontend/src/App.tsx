@@ -19,14 +19,7 @@ export default function App() {
         <AuthFeedback />
 
         <Routes>
-          <Route
-            path="/"
-            element={
-              <PublicOnlyRoute>
-                <HomePage />
-              </PublicOnlyRoute>
-            }
-          />
+          <Route path="/" element={<HomePage />} />
 
           <Route
             path="/login"

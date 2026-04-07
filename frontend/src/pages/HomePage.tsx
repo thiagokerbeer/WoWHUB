@@ -1,4 +1,4 @@
-import { Link, Navigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { BrandLogo } from "../components/BrandLogo";
 import { InteractiveBackground } from "../components/InteractiveBackground";
 import { PublicShell } from "../components/PublicShell";
@@ -105,7 +105,7 @@ const operatingLayers = [
 ];
 
 export function HomePage() {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
 
   if (loading) {
     return (
@@ -116,10 +116,6 @@ export function HomePage() {
         </div>
       </PublicShell>
     );
-  }
-
-  if (user) {
-    return <Navigate to="/app" replace />;
   }
 
   return (
