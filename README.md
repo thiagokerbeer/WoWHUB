@@ -277,3 +277,4 @@ Observação final
 O WoWHUB representa uma aplicação construída com mentalidade de produto real: organização técnica, camada administrativa funcional, integração completa e preocupação visual acima do padrão comum de projeto acadêmico.
 
 Este projeto foi desenvolvido como vitrine técnica para demonstrar capacidade de construir software com estrutura, acabamento e potencial de evolução.
+ :)
