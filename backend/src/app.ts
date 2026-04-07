@@ -2,6 +2,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import helmet from "helmet";
+import { validateEnvOnBoot } from "./config/env";
 import { prisma } from "./config/prisma";
 import { requestContextMiddleware } from "./middlewares/requestContextMiddleware";
 import { requestLoggerMiddleware } from "./middlewares/requestLoggerMiddleware";
@@ -14,14 +15,21 @@ import { errorMiddleware } from "./middlewares/errorMiddleware";
 import { notFoundMiddleware } from "./middlewares/notFoundMiddleware";
 
 dotenv.config();
+const env = validateEnvOnBoot();
 
 const app = express();
+
+function normalizeOrigin(origin: string) {
+  return origin.trim().replace(/\/+$/, "").toLowerCase();
+}
 
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
-  process.env.FRONTEND_URL,
-].filter(Boolean) as string[];
+  env.frontendUrl,
+]
+  .filter(Boolean)
+  .map((origin) => normalizeOrigin(String(origin)));
 
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
@@ -39,7 +47,7 @@ app.use(
         return callback(null, true);
       }
 
-      if (allowedOrigins.includes(origin)) {
+      if (allowedOrigins.includes(normalizeOrigin(origin))) {
         return callback(null, true);
       }
 
@@ -49,8 +57,8 @@ app.use(
   })
 );
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "100kb" }));
+app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 app.use(requestLoggerMiddleware);
 
 app.get("/", (_req, res) => {

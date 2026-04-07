@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { getEnv } from "../config/env";
 
 export type TokenPayload = {
   userId: string;
@@ -6,9 +7,9 @@ export type TokenPayload = {
 };
 
 export function generateToken(payload: TokenPayload) {
-  return jwt.sign(payload, process.env.JWT_SECRET as string, { expiresIn: "7d" });
+  return jwt.sign(payload, getEnv().jwtSecret, { expiresIn: "7d" });
 }
 
 export function verifyToken(token: string) {
-  return jwt.verify(token, process.env.JWT_SECRET as string) as TokenPayload;
+  return jwt.verify(token, getEnv().jwtSecret) as TokenPayload;
 }

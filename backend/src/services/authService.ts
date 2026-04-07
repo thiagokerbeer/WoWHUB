@@ -5,7 +5,9 @@ import { prisma } from "../config/prisma";
 import { createActivity } from "../utils/activity";
 import { AppError } from "../utils/AppError";
 import { generateToken } from "../utils/jwt";
+import { verifyTurnstileToken } from "../utils/turnstile";
 import { assertUserCanAccess } from "../utils/userAccess";
+import { getEnv } from "../config/env";
 
 const registerSchema = z.object({
   name: z.string().trim().min(3, "Nome deve ter pelo menos 3 caracteres"),
@@ -14,11 +16,13 @@ const registerSchema = z.object({
     .string()
     .min(6, "Senha deve ter pelo menos 6 caracteres")
     .max(100, "Senha muito longa"),
+  turnstileToken: z.string().min(10).optional(),
 });
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email("E-mail inválido"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  turnstileToken: z.string().min(10).optional(),
 });
 
 const publicUserSelect = Prisma.validator<Prisma.UserSelect>()({
@@ -95,7 +99,16 @@ function buildAvatar(name: string) {
 }
 
 export async function registerUser(payload: unknown) {
-  const { name, email, password } = parseRegisterPayload(payload);
+  const { name, email, password, turnstileToken } = parseRegisterPayload(payload);
+  const env = getEnv();
+
+  if (env.turnstileEnabled && turnstileToken) {
+    const turnstileResult = await verifyTurnstileToken(turnstileToken);
+
+    if (!turnstileResult.success) {
+      throw new AppError(400, "Falha na validação anti-bot");
+    }
+  }
 
   const existingUser = await prisma.user.findUnique({
     where: { email },
@@ -139,7 +152,16 @@ export async function registerUser(payload: unknown) {
 }
 
 export async function loginUser(payload: unknown) {
-  const { email, password } = parseLoginPayload(payload);
+  const { email, password, turnstileToken } = parseLoginPayload(payload);
+  const env = getEnv();
+
+  if (env.turnstileEnabled && turnstileToken) {
+    const turnstileResult = await verifyTurnstileToken(turnstileToken);
+
+    if (!turnstileResult.success) {
+      throw new AppError(400, "Falha na validação anti-bot");
+    }
+  }
 
   const user = await findLoginUserByEmail(email);
 
@@ -147,10 +169,14 @@ export async function loginUser(payload: unknown) {
     throw new AppError(401, "Credenciais inválidas");
   }
 
-  assertUserCanAccess({
-    isBlocked: user.isBlocked,
-    bannedUntil: user.bannedUntil,
-  });
+  try {
+    assertUserCanAccess({
+      isBlocked: user.isBlocked,
+      bannedUntil: user.bannedUntil,
+    });
+  } catch {
+    throw new AppError(401, "Credenciais inválidas");
+  }
 
   const passwordMatches = await bcrypt.compare(password, user.password);
 

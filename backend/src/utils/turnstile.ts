@@ -1,3 +1,5 @@
+import { getEnv } from "../config/env";
+
 type TurnstileVerifyResponse = {
   success: boolean;
   "error-codes"?: string[];
@@ -16,7 +18,7 @@ function getClientIp(remoteIp?: string) {
 }
 
 export async function verifyTurnstileToken(token: string, remoteIp?: string) {
-  const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
+  const secret = getEnv().turnstileSecretKey;
 
   if (!secret) {
     throw new Error("TURNSTILE_SECRET_KEY_NOT_CONFIGURED");
