@@ -22,14 +22,21 @@ function normalizeRouteParam(
 }
 
 export const getTickets = asyncHandler(async (req: Request, res: Response) => {
-  const tickets = await getTicketsService({
+  const result = await getTicketsService({
     actorUserId: req.user?.userId,
     actorRole: req.user?.role,
     statusQuery: req.query.status,
     priorityQuery: req.query.priority,
+    pageQuery: req.query.page,
+    limitQuery: req.query.limit,
   });
 
-  return res.status(200).json(tickets);
+  res.setHeader("x-total-count", String(result.meta.total));
+  res.setHeader("x-page", String(result.meta.page));
+  res.setHeader("x-limit", String(result.meta.limit));
+  res.setHeader("x-total-pages", String(result.meta.totalPages));
+
+  return res.status(200).json(result.data);
 });
 
 export const createTicket = asyncHandler(

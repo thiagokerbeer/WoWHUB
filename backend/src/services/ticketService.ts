@@ -9,6 +9,7 @@ import {
 } from "../schemas/ticketSchema";
 import { createActivity } from "../utils/activity";
 import { AppError, isAppError } from "../utils/AppError";
+import { parsePagination } from "../utils/pagination";
 
 const ticketListInclude = Prisma.validator<Prisma.TicketInclude>()({
   user: {
@@ -172,11 +173,17 @@ export async function getTicketsService(params: {
   actorRole?: UserRole;
   statusQuery?: unknown;
   priorityQuery?: unknown;
+  pageQuery?: unknown;
+  limitQuery?: unknown;
 }) {
   try {
     const actorUserId = parseAuthenticatedUserId(params.actorUserId);
     const status = parseTicketStatusQuery(params.statusQuery);
     const priority = parseTicketPriorityQuery(params.priorityQuery);
+    const pagination = parsePagination({
+      page: params.pageQuery,
+      limit: params.limitQuery,
+    });
 
     const where: Prisma.TicketWhereInput =
       params.actorRole === "ADMIN"
@@ -190,15 +197,28 @@ export async function getTicketsService(params: {
             ...(priority ? { priority } : {}),
           };
 
-    const tickets = await prisma.ticket.findMany({
-      where,
-      include: ticketListInclude,
-      orderBy: {
-        updatedAt: "desc",
-      },
-    });
+    const [tickets, total] = await Promise.all([
+      prisma.ticket.findMany({
+        where,
+        include: ticketListInclude,
+        orderBy: {
+          updatedAt: "desc",
+        },
+        skip: pagination.skip,
+        take: pagination.limit,
+      }),
+      prisma.ticket.count({ where }),
+    ]);
 
-    return tickets;
+    return {
+      data: tickets,
+      meta: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total,
+        totalPages: Math.ceil(total / pagination.limit),
+      },
+    };
   } catch (error) {
     return rethrowTicketError(error, "Erro ao buscar tickets");
   }

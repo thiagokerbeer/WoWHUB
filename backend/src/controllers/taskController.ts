@@ -21,13 +21,20 @@ function normalizeRouteParam(
 }
 
 export const getTasks = asyncHandler(async (req: Request, res: Response) => {
-  const tasks = await getTasksService({
+  const result = await getTasksService({
     userId: req.user?.userId,
     role: req.user?.role,
     statusQuery: req.query.status,
+    pageQuery: req.query.page,
+    limitQuery: req.query.limit,
   });
 
-  return res.status(200).json(tasks);
+  res.setHeader("x-total-count", String(result.meta.total));
+  res.setHeader("x-page", String(result.meta.page));
+  res.setHeader("x-limit", String(result.meta.limit));
+  res.setHeader("x-total-pages", String(result.meta.totalPages));
+
+  return res.status(200).json(result.data);
 });
 
 export const createTask = asyncHandler(async (req: Request, res: Response) => {

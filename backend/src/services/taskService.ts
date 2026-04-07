@@ -7,6 +7,7 @@ import {
 } from "../schemas/taskSchema";
 import { createActivity } from "../utils/activity";
 import { AppError, isAppError } from "../utils/AppError";
+import { parsePagination } from "../utils/pagination";
 
 const taskInclude = Prisma.validator<Prisma.TaskInclude>()({
   project: {
@@ -154,10 +155,16 @@ export async function getTasksService(params: {
   userId?: string;
   role?: UserRole;
   statusQuery?: unknown;
+  pageQuery?: unknown;
+  limitQuery?: unknown;
 }) {
   try {
     const userId = parseAuthenticatedUserId(params.userId);
     const status = parseTaskStatusQuery(params.statusQuery);
+    const pagination = parsePagination({
+      page: params.pageQuery,
+      limit: params.limitQuery,
+    });
 
     const where: Prisma.TaskWhereInput =
       params.role === "ADMIN"
@@ -169,15 +176,28 @@ export async function getTasksService(params: {
             ...(status ? { status } : {}),
           };
 
-    const tasks = await prisma.task.findMany({
-      where,
-      include: taskInclude,
-      orderBy: {
-        updatedAt: "desc",
-      },
-    });
+    const [tasks, total] = await Promise.all([
+      prisma.task.findMany({
+        where,
+        include: taskInclude,
+        orderBy: {
+          updatedAt: "desc",
+        },
+        skip: pagination.skip,
+        take: pagination.limit,
+      }),
+      prisma.task.count({ where }),
+    ]);
 
-    return tasks;
+    return {
+      data: tasks,
+      meta: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total,
+        totalPages: Math.ceil(total / pagination.limit),
+      },
+    };
   } catch (error) {
     return rethrowTaskError(error, "Erro ao buscar tarefas");
   }

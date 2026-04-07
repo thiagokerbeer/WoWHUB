@@ -13,10 +13,12 @@ function buildErrorResponse(message: string, details?: unknown, code?: string) {
 
 export const errorMiddleware: ErrorRequestHandler = (
   error,
-  _req,
+  req,
   res,
   next
 ) => {
+  const requestId = req.requestId;
+
   if (res.headersSent) {
     return next(error);
   }
@@ -24,40 +26,59 @@ export const errorMiddleware: ErrorRequestHandler = (
   if (error instanceof SyntaxError && "body" in error) {
     return res
       .status(400)
-      .json(buildErrorResponse("JSON inválido no corpo da requisição"));
+      .json({
+        ...buildErrorResponse("JSON inválido no corpo da requisição"),
+        ...(requestId ? { requestId } : {}),
+      });
   }
 
   if (error instanceof ZodError) {
-    return res.status(400).json(
-      buildErrorResponse("Dados inválidos", error.flatten().fieldErrors)
-    );
+    return res.status(400).json({
+      ...buildErrorResponse("Dados inválidos", error.flatten().fieldErrors),
+      ...(requestId ? { requestId } : {}),
+    });
   }
 
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2002") {
       return res
         .status(409)
-        .json(buildErrorResponse("Registro duplicado"));
+        .json({
+          ...buildErrorResponse("Registro duplicado"),
+          ...(requestId ? { requestId } : {}),
+        });
     }
 
     if (error.code === "P2025") {
       return res
         .status(404)
-        .json(buildErrorResponse("Registro não encontrado"));
+        .json({
+          ...buildErrorResponse("Registro não encontrado"),
+          ...(requestId ? { requestId } : {}),
+        });
     }
   }
 
   if (isAppError(error)) {
     return res
       .status(error.statusCode)
-      .json(buildErrorResponse(error.message, error.details, error.code));
+      .json({
+        ...buildErrorResponse(error.message, error.details, error.code),
+        ...(requestId ? { requestId } : {}),
+      });
   }
 
   if (error instanceof Error && error.message === "Origin not allowed by CORS") {
-    return res.status(403).json(buildErrorResponse(error.message));
+    return res.status(403).json({
+      ...buildErrorResponse(error.message),
+      ...(requestId ? { requestId } : {}),
+    });
   }
 
   console.error(error);
 
-  return res.status(500).json(buildErrorResponse("Erro interno do servidor"));
+  return res.status(500).json({
+    ...buildErrorResponse("Erro interno do servidor"),
+    ...(requestId ? { requestId } : {}),
+  });
 };
