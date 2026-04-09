@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { login, me, register } from "../controllers/authController";
 import { authMiddleware } from "../middlewares/authMiddleware";
-import { authRateLimit } from "../middlewares/authRateLimite";
+import { authRateLimit } from "../middlewares/authRateLimit";
 
 const router = Router();
 
