@@ -1,280 +1,255 @@
+<div align="center">
+
 # WoWHUB
 
-Plataforma web para operação interna, organização de demandas e gestão centralizada de usuários, tarefas e chamados.
+**Plataforma de operação interna para gestão de tarefas, chamados e usuários**
 
-O **WoWHUB** foi projetado com proposta de produto real de mercado: uma aplicação SaaS com foco em fluxo operacional, visibilidade gerencial, controle administrativo e experiência moderna de uso.  
-A estrutura do projeto combina frontend e backend desacoplados, autenticação, painel administrativo e interface construída para parecer software profissional.
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=white)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Node.js](https://img.shields.io/badge/Node.js-Express-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
+[![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?style=flat-square&logo=prisma&logoColor=white)](https://www.prisma.io)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://neon.tech)
 
----
+[**Demo ao vivo →**](https://wo-whub.vercel.app) &nbsp;·&nbsp; [**API →**](https://wowhub.onrender.com/health)
 
-## Visão geral
-
-Em muitos times, o fluxo operacional se perde entre mensagens, planilhas e ferramentas desconectadas. O WoWHUB nasce para resolver esse cenário com uma plataforma única para acompanhamento de atividades, organização do ambiente interno e centralização do controle da operação.
-
-A aplicação foi construída com foco em:
-
-- gestão visual e clara da operação
-- organização de tarefas e chamados
-- controle de acesso de usuários
-- painel administrativo com ações reais
-- base escalável para evolução de produto SaaS
+</div>
 
 ---
 
-## Principais funcionalidades
+## Sobre o projeto
 
-### Painel operacional
-- visualização central da operação
-- interface organizada para navegação entre áreas do sistema
-- experiência pensada para uso diário
+O **WoWHUB** é uma aplicação SaaS de operação interna construída com arquitetura desacoplada (frontend + backend independentes), autenticação JWT, painel administrativo funcional e interface com acabamento premium.
 
-### Gestão de tarefas e demandas
-- estrutura voltada para organização de rotinas internas
-- base preparada para acompanhamento de atividades operacionais
-- visão centralizada para produtividade e controle
-
-### Gestão de chamados
-- ambiente voltado para fluxo de suporte e operação
-- estrutura de software com mentalidade de produto interno/externo
-- possibilidade de expansão para regras de prioridade, status e histórico
-
-### Autenticação e área privada
-- acesso autenticado para usuários
-- separação entre área pública e ambiente restrito
-- base preparada para regras de permissão e controle por perfil
-
-### Administração de usuários
-O painel administrativo já conta com ações funcionais integradas ao backend:
-
-- bloquear usuário
-- desbloquear usuário
-- aplicar banimento temporário de **5 dias**
-- aplicar banimento temporário de **30 dias**
-- remover banimento
-- excluir usuário
-
-### Feedback visual de ação
-- respostas visuais no fluxo administrativo
-- experiência mais clara para ações críticas
-- interface polida para transmitir sensação de produto premium
+O projeto foi desenvolvido como portfólio técnico com mentalidade de produto real: não é um CRUD genérico, é uma aplicação com camadas definidas, controle de acesso, regras de negócio e deploy em produção.
 
 ---
 
-## Diferenciais do projeto
+## Funcionalidades
 
-- arquitetura separada entre frontend e backend
-- interface premium com foco em percepção de produto real
-- integração completa entre camada visual e regras administrativas
-- uso de banco PostgreSQL com Prisma ORM
-- deploy em ambiente real com frontend na **Vercel** e backend na **Render**
-- modelagem preparada para crescimento do sistema
+| Módulo | Descrição |
+|--------|-----------|
+| **Autenticação** | Registro e login com JWT, proteção de rotas, sessão persistida no cliente |
+| **Dashboard** | Visão geral da operação com dados do usuário autenticado |
+| **Tarefas** | Criação e atualização de status de tarefas operacionais |
+| **Chamados** | Abertura, acompanhamento e comentários em chamados internos |
+| **Admin** | Painel com ações reais sobre usuários: bloquear, banir, desbanir, excluir |
+| **Rate limiting** | Proteção de rotas de auth com Upstash Redis (fallback in-memory) |
+| **Turnstile** | Suporte opcional a Cloudflare Turnstile em registro/login |
 
 ---
 
-## Stack utilizada
+## Stack
 
 ### Frontend
-- **React**
-- **TypeScript**
-- **Vite**
+- **React 18** + **TypeScript** + **Vite**
+- **React Router v6** — roteamento com rotas protegidas e admin-only
+- **Axios** — cliente HTTP com interceptors de autenticação e feedback de sessão expirada
+- **TanStack React Query v5** — cache e gerenciamento de estado assíncrono
+- CSS modular por componente, sem framework de UI externo
 
 ### Backend
-- **Node.js**
-- **Express**
-- **TypeScript**
+- **Node.js** + **Express** + **TypeScript**
+- **Prisma ORM** + **PostgreSQL** (Neon)
+- **Zod** — validação de schemas nas rotas
+- **JWT** + **bcrypt** — autenticação e hash de senhas
+- **Helmet** + **CORS** configurado por allowlist
+- **Upstash Redis** (opcional) — rate limiting distribuído para rotas de auth
 
-### Banco e ORM
-- **PostgreSQL**
-- **Prisma**
-
-### Infra e deploy
-- **Neon** para banco de dados PostgreSQL
-- **Vercel** para deploy do frontend
-- **Render** para deploy do backend
+### Infra / Deploy
+| Camada | Plataforma |
+|--------|-----------|
+| Frontend | [Vercel](https://vercel.com) |
+| Backend | [Render](https://render.com) |
+| Banco de dados | [Neon](https://neon.tech) (PostgreSQL serverless) |
 
 ---
-## Acesse a demonstração
 
-Veja o WoWHUB em funcionamento nos links abaixo.
+## Arquitetura
 
-### Aplicação web
-(https://wo-whub.vercel.app)
+```
+wowhub/
+├── frontend/                  # Vite + React 18
+│   └── src/
+│       ├── components/        # Componentes reutilizáveis e UI primitives
+│       ├── context/           # AuthContext (sessão global)
+│       ├── pages/             # Dashboard, Tickets, Tasks, Admin, Auth
+│       ├── services/api.ts    # Axios instance + interceptors
+│       ├── query/             # React Query client e query keys
+│       └── lib/               # Utilitários: env, i18n, formatação
+│
+└── backend/                   # Express + TypeScript
+    └── src/
+        ├── routes/            # Definição de rotas por domínio
+        ├── controllers/       # Entrada HTTP → chama services
+        ├── services/          # Regras de negócio + Prisma
+        ├── middlewares/       # Auth, admin, rate limit, logger, erros
+        ├── schemas/           # Validação Zod por domínio
+        ├── config/            # Env, Prisma client
+        └── utils/             # AppError, asyncHandler, JWT, paginação
+```
 
-### API / backend
-(https://wowhub.onrender.com)
+**Padrão de camadas:** `Route → Controller → Service → Prisma`
 
+---
 
-## Arquitetura do projeto
+## Rodando localmente
 
-O projeto está organizado em duas aplicações principais:
+### Pré-requisitos
+- Node.js 18+
+- PostgreSQL acessível (local ou Neon/Supabase/Railway)
+
+### 1. Clonar o repositório
 
 ```bash
-wowhub/
-  frontend/
-  backend/
-
-  Frontend
-
-Responsável por:
-
-interface do usuário
-navegação entre páginas
-consumo da API
-fluxo visual do painel
-experiência administrativa
-Backend
-
-Responsável por:
-
-regras de negócio
-autenticação e proteção de rotas
-gerenciamento de usuários
-ações administrativas
-integração com banco de dados via Prisma
-Funcionalidades administrativas já implementadas
-
-O WoWHUB já possui uma área administrativa funcional conectada ao backend com suporte para:
-
-listagem de usuários
-controle de status de acesso
-bloqueio e desbloqueio
-banimentos temporários
-remoção de banimentos
-exclusão de usuários
-
-Campos já existentes no modelo de usuário:
-
-isBlocked
-bannedUntil
-
-Esses campos permitem ampliar facilmente a camada de governança e segurança da aplicação em futuras evoluções.
-
-Experiência visual
-
-O frontend do WoWHUB foi trabalhado para transmitir sensação de plataforma profissional.
-A proposta visual busca um resultado mais próximo de software comercial moderno, com:
-
-layout limpo
-contraste elegante
-hierarquia visual clara
-componentes com acabamento mais premium
-páginas administrativas com feedback de ação
-linguagem visual coerente entre autenticação, painel e gestão
-Como executar o projeto localmente
-1) Clonar o repositório
-git clone <URL_DO_SEU_REPOSITORIO>
+git clone https://github.com/seu-usuario/wowhub.git
 cd wowhub
-2) Rodar o backend
-Caminho
+```
 
-backend
+### 2. Backend
 
-Instalar dependências
+```bash
 cd backend
 npm install
-Configurar variáveis de ambiente
+```
 
-Crie um arquivo .env dentro de backend/ com a URL do banco PostgreSQL:
+Crie o arquivo `.env` baseado no exemplo:
 
-DATABASE_URL="sua_database_url"
-DIRECT_URL="sua_direct_url"
-JWT_SECRET="seu_segredo_jwt"
+```bash
+cp .env.example .env
+```
 
-Observação: os nomes das variáveis podem variar conforme sua implementação atual.
-Mantenha exatamente os nomes usados no seu projeto.
+Preencha as variáveis obrigatórias em `.env`:
 
-Gerar Prisma Client
-npx prisma generate
-Rodar migrations
+```env
+DATABASE_URL="postgresql://user:password@host:5432/wowhub"
+JWT_SECRET="um_segredo_forte_com_pelo_menos_32_caracteres"
+FRONTEND_URL="http://localhost:5173"
+```
+
+Execute as migrations e suba o servidor:
+
+```bash
 npx prisma migrate dev
-Subir backend em desenvolvimento
 npm run dev
-Build do backend
-npm run build
-3) Rodar o frontend
-Caminho
+```
 
-frontend
+A API estará disponível em `http://localhost:3333`.
 
-Instalar dependências
+### 3. Frontend
+
+```bash
 cd ../frontend
 npm install
-Configurar variáveis de ambiente
+```
 
-Crie um arquivo .env dentro de frontend/ com a URL da API:
+Crie o arquivo `.env.local`:
 
-VITE_API_URL="http://localhost:PORTA_DA_API"
-Rodar frontend em desenvolvimento
+```env
+VITE_API_URL="http://localhost:3333"
+```
+
+Suba o frontend:
+
+```bash
 npm run dev
-Build do frontend
-npm run build
-Fluxo de funcionamento
-o usuário acessa a aplicação
-realiza autenticação
-entra na área privada da plataforma
-interage com os módulos do sistema
-administradores podem gerenciar usuários através da AdminPage
-o backend processa regras e persiste os dados no PostgreSQL via Prisma
-Objetivo do projeto
+```
 
-O WoWHUB foi desenvolvido como peça de portfólio com padrão superior de apresentação, estrutura técnica consistente e proposta real de produto.
+A aplicação estará disponível em `http://localhost:5173`.
 
-Mais do que demonstrar layout, o projeto busca mostrar capacidade de construir uma aplicação com:
+---
 
-separação entre camadas
-integração real frontend/backend
-modelagem de dados
-controle administrativo
-deploy
-refinamento visual
-organização de código
-pensamento de produto
-Status atual
-Concluído
-estrutura base do projeto
-frontend com identidade visual trabalhada
-backend funcional
-integração entre frontend e backend
-área administrativa operacional
-ações administrativas de usuário funcionando
-melhorias visuais na AdminPage
-build do backend funcionando com npm run build
-Em evolução
-refinamento final de documentação
-fortalecimento da apresentação para portfólio
-próximas expansões funcionais do sistema
-Próximas possibilidades de evolução
-controle por níveis de permissão
-histórico de ações administrativas
-filtros avançados por status de usuário
-gestão completa de chamados com prioridade e SLA
-dashboard com métricas operacionais
-notificações internas
-auditoria de ações
-paginação e busca de usuários
-melhoria de segurança e observabilidade
-Aprendizados aplicados no projeto
+## Rotas da API
 
-Durante a construção do WoWHUB, foram trabalhados na prática conceitos importantes de desenvolvimento full stack, como:
+| Método | Rota | Auth | Descrição |
+|--------|------|------|-----------|
+| `GET` | `/health` | — | Health check com status do banco |
+| `POST` | `/auth/register` | — | Cadastro de usuário |
+| `POST` | `/auth/login` | — | Login, retorna JWT |
+| `GET` | `/auth/me` | ✓ | Dados do usuário autenticado |
+| `GET` | `/dashboard` | ✓ | Resumo operacional |
+| `GET` | `/tasks` | ✓ | Listagem de tarefas |
+| `POST` | `/tasks` | ✓ | Criar tarefa |
+| `PATCH` | `/tasks/:id/status` | ✓ | Atualizar status |
+| `GET` | `/tickets` | ✓ | Listagem de chamados |
+| `POST` | `/tickets` | ✓ | Abrir chamado |
+| `PATCH` | `/tickets/:id/status` | ✓ | Atualizar status |
+| `POST` | `/tickets/:id/comments` | ✓ | Comentar em chamado |
+| `GET` | `/admin/snapshot` | ✓ Admin | Listagem de usuários |
+| `PATCH` | `/admin/users/:id/access` | ✓ Admin | Bloquear / banir / desbanir |
+| `DELETE` | `/admin/users/:id` | ✓ Admin | Excluir usuário |
 
-criação de aplicação com frontend e backend separados
-integração entre API e interface
-modelagem com Prisma
-uso de PostgreSQL em ambiente real
-deploy de aplicações em plataformas diferentes
-tratamento de regras administrativas
-polimento visual com foco em percepção de qualidade
-organização de projeto para portfólio técnico
+Todas as rotas também estão disponíveis sob o prefixo `/api/v1/`.
 
-Desenvolvido por
+---
 
-Thiago Kerber
+## Variáveis de ambiente
 
-Desenvolvedor Full Stack em construção de portfólio com foco em aplicações web modernas, experiência prática com React, TypeScript, Node.js, Express, Prisma e PostgreSQL.
+### Backend (`backend/.env`)
 
-Observação final
+| Variável | Obrigatória | Descrição |
+|----------|-------------|-----------|
+| `DATABASE_URL` | ✓ | Connection string PostgreSQL |
+| `JWT_SECRET` | ✓ | Segredo para assinatura JWT |
+| `PORT` | — | Porta do servidor (padrão: `3333`) |
+| `FRONTEND_URL` | — | Origin permitida pelo CORS |
+| `TURNSTILE_ENABLED` | — | `true` para ativar Cloudflare Turnstile |
+| `TURNSTILE_SECRET_KEY` | — | Obrigatória se `TURNSTILE_ENABLED=true` |
+| `UPSTASH_REDIS_REST_URL` | — | URL do Upstash (rate limiting distribuído) |
+| `UPSTASH_REDIS_REST_TOKEN` | — | Token do Upstash |
 
-O WoWHUB representa uma aplicação construída com mentalidade de produto real: organização técnica, camada administrativa funcional, integração completa e preocupação visual acima do padrão comum de projeto acadêmico.
+### Frontend (`frontend/.env.local`)
 
-Este projeto foi desenvolvido como vitrine técnica para demonstrar capacidade de construir software com estrutura, acabamento e potencial de evolução.
- :)
+| Variável | Descrição |
+|----------|-----------|
+| `VITE_API_URL` | URL base da API (ex.: `https://wowhub.onrender.com`) |
+
+---
+
+## Modelo de dados
+
+```prisma
+model User {
+  id          String    @id @default(cuid())
+  name        String
+  email       String    @unique
+  role        Role      @default(USER)   // USER | ADMIN
+  isBlocked   Boolean   @default(false)
+  bannedUntil DateTime?
+  // ...tasks, tickets, comments, activityLogs
+}
+
+model Task {
+  status  TaskStatus   // TODO | IN_PROGRESS | DONE
+  priority Priority    // LOW | MEDIUM | HIGH
+}
+
+model Ticket {
+  status   TicketStatus  // OPEN | IN_PROGRESS | CLOSED
+  priority Priority
+  comments Comment[]
+}
+```
+
+---
+
+## Próximas evoluções
+
+- [ ] Dashboard com métricas operacionais (gráficos, KPIs)
+- [ ] Paginação e busca de usuários no admin
+- [ ] Filtros avançados por status, prioridade e responsável
+- [ ] Histórico de ações administrativas (auditoria)
+- [ ] Notificações internas
+- [ ] Controle de permissões por nível (RBAC expandido)
+- [ ] Testes unitários e de integração
+- [ ] GitHub Actions CI/CD
+
+---
+
+## Autor
+
+**Thiago Kerber**
+
+Desenvolvedor Full Stack com foco em aplicações web modernas, arquitetura limpa e experiência de produto.
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Thiago_Kerber-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://linkedin.com/in/thiago-kerber)
+[![GitHub](https://img.shields.io/badge/GitHub-teker-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/teker)
